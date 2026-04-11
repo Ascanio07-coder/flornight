@@ -32,11 +32,11 @@ function App() {
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000, background: 'rgba(0,0,0,0.85)',
-        padding: '12px', textAlign: 'center'
+        padding: '8px', textAlign: 'center'
       }}>
         <h1 style={{ color: '#fff', margin: 0, fontSize: '24px', letterSpacing: '4px', fontWeight: 300 }}>
-          FLORNIGHT
-        </h1>
+  FLORNIGHT
+</h1>
       </div>
 
       <MapContainer
