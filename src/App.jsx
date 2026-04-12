@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from './supabase'
@@ -17,9 +17,13 @@ function App() {
   var selezionato = selState[0]
   var setSelezionato = selState[1]
 
-  var aperto = useState(false)
-  var pannelloAperto = aperto[0]
-  var setPannelloAperto = aperto[1]
+  var pannelloState = useState(false)
+  var pannelloAperto = pannelloState[0]
+  var setPannelloAperto = pannelloState[1]
+
+  var evState = useState(null)
+  var eventoAperto = evState[0]
+  var setEventoAperto = evState[1]
 
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
@@ -34,6 +38,7 @@ function App() {
             descrizione: locale.descrizione,
             lat: locale.lat,
             lng: locale.lng,
+            logo_url: locale.logo_url,
             eventi: evs.filter(function(e) { return e.locale_id === locale.id })
           }
         })
@@ -45,15 +50,21 @@ function App() {
   function selezionaLocale(locale) {
     setSelezionato(locale)
     setPannelloAperto(true)
+    setEventoAperto(null)
   }
 
   function chiudiPannello() {
     setPannelloAperto(false)
     setSelezionato(null)
+    setEventoAperto(null)
   }
 
-  function vaiAEvento(eventoId) {
-    window.location.href = '/evento/' + eventoId
+  function apriEvento(evento) {
+    setEventoAperto(evento)
+  }
+
+  function chiudiEvento() {
+    setEventoAperto(null)
   }
 
   function getBorderColor(locale) {
@@ -70,6 +81,11 @@ function App() {
     if (i < totale - 1) return '1px solid #333'
     return 'none'
   }
+
+  var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
+  var hasLogo = selezionato && selezionato.logo_url && selezionato.logo_url.length > 0
+  var hasFrase = eventoAperto && eventoAperto.frase && eventoAperto.frase.length > 0
+  var hasAudio = eventoAperto && eventoAperto.audio_url && eventoAperto.audio_url.length > 0
 
   return (
     <div style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#1a1a2e' }}>
@@ -137,7 +153,6 @@ function App() {
                 borderRadius: '2px', margin: '0 auto 16px auto', cursor: 'pointer'
               }}
             />
-
             <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 600 }}>
               {selezionato.nome}
             </h2>
@@ -158,7 +173,7 @@ function App() {
                   borderBottom: getEventBorder(i, selezionato.eventi.length)
                 }}>
                   <div
-                    onClick={function() { vaiAEvento(evento.id) }}
+                    onClick={function() { apriEvento(evento) }}
                     style={{ cursor: 'pointer', flex: 1 }}
                   >
                     <div style={{ fontSize: '15px', fontWeight: 500 }}>{evento.nome}</div>
@@ -175,6 +190,104 @@ function App() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        zIndex: 1100,
+        background: '#111',
+        borderRadius: '20px 20px 0 0',
+        height: '90vh',
+        transform: eventoAperto ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s ease',
+        overflowY: 'auto',
+        color: '#fff'
+      }}>
+        {eventoAperto && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div
+              onClick={chiudiEvento}
+              style={{
+                padding: '12px', display: 'flex', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              <div style={{
+                width: '40px', height: '4px', background: '#555',
+                borderRadius: '2px'
+              }} />
+            </div>
+
+            <div style={{ textAlign: 'center', padding: '0 20px 16px 20px' }}>
+              {hasLogo ? (
+                <img
+                  src={selezionato.logo_url}
+                  alt={selezionato.nome}
+                  style={{ height: '50px', objectFit: 'contain' }}
+                />
+              ) : (
+                <span style={{ fontSize: '16px', color: '#aaa', letterSpacing: '3px', fontWeight: 500 }}>
+                  {selezionato.nome}
+                </span>
+              )}
+            </div>
+
+            <div style={{ padding: '0 32px', flexShrink: 0 }}>
+              {hasEventImage ? (
+                <img
+                  src={eventoAperto.immagine_url}
+                  alt={eventoAperto.nome}
+                  style={{
+                    width: '100%', borderRadius: '8px',
+                    aspectRatio: '1/1', objectFit: 'cover', display: 'block',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', borderRadius: '8px',
+                  aspectRatio: '1/1', background: '#1a1a2e',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '80px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                }}>
+                  🎵
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '24px 32px', flex: 1, textAlign: 'center' }}>
+              <h2 style={{ margin: '0 0 6px 0', fontSize: '26px', fontWeight: 700 }}>
+                {eventoAperto.nome}
+              </h2>
+
+              {hasFrase && (
+                <p style={{ margin: '0 0 16px 0', color: '#b3b3b3', fontSize: '16px' }}>
+                  {eventoAperto.frase}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '20px', color: '#b3b3b3', fontSize: '14px' }}>
+                <span>{eventoAperto.giorno}</span>
+                <span>-</span>
+                <span>{eventoAperto.orario}</span>
+              </div>
+
+              <div style={{
+                display: 'inline-block', background: '#ff0000', padding: '10px 32px',
+                borderRadius: '24px', fontSize: '18px', fontWeight: 700
+              }}>
+                {eventoAperto.prezzo}
+              </div>
+
+              {hasAudio && (
+                <div style={{ marginTop: '24px' }}>
+                  <audio controls src={eventoAperto.audio_url} style={{ width: '100%' }} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
