@@ -34,6 +34,10 @@ function Admin() {
   var staffList = staffListState[0]
   var setStaffList = staffListState[1]
 
+  var analyticsState = useState([])
+  var analytics = analyticsState[0]
+  var setAnalytics = analyticsState[1]
+
   var selState = useState(null)
   var localeSelezionato = selState[0]
   var setLocaleSelezionato = selState[1]
@@ -101,6 +105,7 @@ function Admin() {
       setLocali([])
       setEventi([])
       setStaffList([])
+      setAnalytics([])
     })
   }
 
@@ -113,6 +118,12 @@ function Admin() {
     })
     supabase.from('staff').select('*').order('id').then(function(res) {
       setStaffList(res.data || [])
+    })
+  }
+
+  function caricaAnalytics() {
+    supabase.from('analytics').select('*').order('timestamp', { ascending: false }).limit(500).then(function(res) {
+      setAnalytics(res.data || [])
     })
   }
 
@@ -223,7 +234,6 @@ function Admin() {
 
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
 
-  // LOGIN
   if (!user || !staffInfo) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -231,19 +241,14 @@ function Admin() {
         {errore && <p style={{ color: '#ff4444', fontSize: '14px', margin: '0 0 8px 0', textAlign: 'center' }}>{errore}</p>}
         <input type="email" placeholder="Email" value={email} onChange={function(e) { setEmail(e.target.value) }} style={inputStyle} />
         <input type="password" placeholder="Password" value={pass} onChange={function(e) { setPass(e.target.value) }} onKeyDown={function(e) { if (e.key === 'Enter') login() }} style={inputStyle} />
-        <button onClick={login} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>
-          Accedi
-        </button>
+        <button onClick={login} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>Accedi</button>
         {user && !staffInfo && (
-          <button onClick={logout} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', width: '100%', marginTop: '8px' }}>
-            Esci
-          </button>
+          <button onClick={logout} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', width: '100%', marginTop: '8px' }}>Esci</button>
         )}
       </div>
     )
   }
 
-  // PANNELLO ADMIN
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -255,12 +260,9 @@ function Admin() {
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        <button onClick={function() { setTab('locali') }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: tab === 'locali' ? '#ff0000' : '#333', color: '#fff' }}>
-          Locali
-        </button>
-        <button onClick={function() { setTab('staff') }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: tab === 'staff' ? '#ff0000' : '#333', color: '#fff' }}>
-          Staff
-        </button>
+        <button onClick={function() { setTab('locali') }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: tab === 'locali' ? '#ff0000' : '#333', color: '#fff' }}>Locali</button>
+        <button onClick={function() { setTab('staff') }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: tab === 'staff' ? '#ff0000' : '#333', color: '#fff' }}>Staff</button>
+        <button onClick={function() { setTab('analytics'); caricaAnalytics() }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: tab === 'analytics' ? '#ff0000' : '#333', color: '#fff' }}>Dati</button>
       </div>
 
       {tab === 'locali' && (
@@ -275,7 +277,6 @@ function Admin() {
                   </div>
                   <button onClick={function() { eliminaLocale(l.id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>Elimina</button>
                 </div>
-
                 {localeSelezionato === l.id && (
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #333' }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#ff4444' }}>Eventi</h4>
@@ -310,7 +311,6 @@ function Admin() {
               </div>
             )
           })}
-
           <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginTop: '20px' }}>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Aggiungi locale</h3>
             <input placeholder="Nome" value={nomeLocale} onChange={function(e) { setNomeLocale(e.target.value) }} style={inputStyle} />
@@ -337,7 +337,6 @@ function Admin() {
               </div>
             )
           })}
-
           <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginTop: '20px' }}>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Crea proprietario</h3>
             <input placeholder="Nome" value={staffNome} onChange={function(e) { setStaffNome(e.target.value) }} style={inputStyle} />
@@ -351,6 +350,45 @@ function Admin() {
             </select>
             <button onClick={creaStaff} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Crea proprietario</button>
           </div>
+        </div>
+      )}
+
+      {tab === 'analytics' && (
+        <div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', fontWeight: 700 }}>{analytics.filter(function(a) { return a.tipo === 'view_locale' }).length}</div>
+              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Locali visti</div>
+            </div>
+            <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', fontWeight: 700 }}>{analytics.filter(function(a) { return a.tipo === 'view_evento' }).length}</div>
+              <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>Eventi visti</div>
+            </div>
+          </div>
+
+          <h3 style={{ fontSize: '14px', color: '#aaa', marginBottom: '10px' }}>Classifica locali</h3>
+          {locali.map(function(l) {
+            var visite = analytics.filter(function(a) { return a.locale_id === l.id }).length
+            return (
+              <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #222' }}>
+                <span style={{ fontSize: '14px' }}>{l.nome}</span>
+                <span style={{ fontSize: '14px', color: '#ff4444', fontWeight: 600 }}>{visite}</span>
+              </div>
+            )
+          })}
+
+          <h3 style={{ fontSize: '14px', color: '#aaa', marginTop: '20px', marginBottom: '10px' }}>Ultime azioni</h3>
+          {analytics.slice(0, 20).map(function(a, i) {
+            var nomeL = getNomeLocale(a.locale_id)
+            var data = new Date(a.timestamp)
+            var ora = data.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1a1a2e', fontSize: '13px' }}>
+                <span style={{ color: '#aaa' }}>{a.tipo === 'view_locale' ? 'Locale' : 'Evento'} - {nomeL}</span>
+                <span style={{ color: '#555' }}>{ora}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

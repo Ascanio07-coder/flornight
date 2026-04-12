@@ -100,6 +100,7 @@ function App() {
     setPannelloAperto(true)
     setEventoAperto(null)
     stopAudio()
+    supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id })
   }
 
   function chiudiPannello() {
@@ -112,6 +113,7 @@ function App() {
   function apriEvento(evento) {
     stopAudio()
     setEventoAperto(evento)
+    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato.id, evento_id: evento.id })
   }
 
   function chiudiEvento() {
