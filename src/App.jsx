@@ -71,8 +71,7 @@ function App() {
 
   function localeApertoOra(locale) {
     var oggi = getGiornoOggi()
-    var eventiOggi = locale.eventi.filter(function(e) { return e.giorno === oggi })
-    return eventiOggi.length > 0
+    return locale.eventi.filter(function(e) { return e.giorno === oggi }).length > 0
   }
 
   function getLocaliVisibili() {
@@ -82,18 +81,18 @@ function App() {
 
   function getDotColor(locale) {
     if (selezionato && selezionato.id === locale.id) return '#ffffff'
-    if (filtro === 'night') return '#FFD700'
-    return '#ff0000'
+    if (filtro === 'night') return '#D4A843'
+    return '#C43E51'
   }
 
   function getDotFill(locale) {
-    if (filtro === 'night') return '#FFD700'
-    return '#ff0000'
+    if (filtro === 'night') return '#D4A843'
+    return '#C43E51'
   }
 
   function getDotWeight(locale) {
-    if (selezionato && selezionato.id === locale.id) return 3
-    return 2
+    if (selezionato && selezionato.id === locale.id) return 2
+    return 1.5
   }
 
   function selezionaLocale(locale) {
@@ -143,7 +142,7 @@ function App() {
   }
 
   function getEventBorder(i, totale) {
-    if (i < totale - 1) return '1px solid #333'
+    if (i < totale - 1) return '1px solid rgba(255,255,255,0.06)'
     return 'none'
   }
 
@@ -159,6 +158,15 @@ function App() {
     stopAudio()
   }
 
+  function getEventiVisibili() {
+    if (!selezionato) return []
+    if (filtro === 'night') {
+      return selezionato.eventi.filter(function(e) { return e.giorno === getGiornoOggi() })
+    }
+    return selezionato.eventi
+  }
+
+  var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
   var hasLogo = selezionato && selezionato.logo_url && selezionato.logo_url.length > 0
   var hasFrase = eventoAperto && eventoAperto.frase && eventoAperto.frase.length > 0
@@ -166,28 +174,30 @@ function App() {
   var localiVisibili = getLocaliVisibili()
 
   return (
-    <div style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#1a1a2e', touchAction: 'none' }}>
+    <div style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
       {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 1000, background: 'rgba(0,0,0,0.85)',
-        padding: '10px 16px',
+        zIndex: 1000, background: 'rgba(12,12,12,0.9)',
+        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        padding: '10px 20px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
-        <h1 style={{ color: '#fff', margin: 0, fontSize: '22px', letterSpacing: '4px', fontWeight: 300 }}>
+        <span style={{ color: '#fff', fontSize: '18px', letterSpacing: '3px', fontWeight: 400 }}>
           FLORNIGHT
-        </h1>
+        </span>
         <button
           onClick={toggleFiltro}
           style={{
-            padding: '6px 14px', borderRadius: '20px', border: 'none',
-            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-            background: filtro === 'night' ? '#FFD700' : '#333',
-            color: filtro === 'night' ? '#000' : '#fff',
-            transition: 'all 0.3s ease'
+            padding: '5px 14px', borderRadius: '16px',
+            border: filtro === 'night' ? '1px solid #D4A843' : '1px solid rgba(255,255,255,0.2)',
+            cursor: 'pointer', fontSize: '11px', fontWeight: 500,
+            background: filtro === 'night' ? 'rgba(212,168,67,0.15)' : 'transparent',
+            color: filtro === 'night' ? '#D4A843' : 'rgba(255,255,255,0.6)',
+            transition: 'all 0.3s ease', letterSpacing: '0.5px'
           }}
         >
-          {filtro === 'night' ? 'ON NIGHT' : 'SETTIMANA'}
+          {filtro === 'night' ? 'STASERA' : 'SETTIMANA'}
         </button>
       </div>
 
@@ -195,7 +205,7 @@ function App() {
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
-        style={{ height: '100%', width: '100%', background: '#1a1a2e' }}
+        style={{ height: '100%', width: '100%', background: '#121212' }}
         maxBounds={firenzeBounds}
         maxBoundsViscosity={1.0}
         minZoom={13}
@@ -211,11 +221,11 @@ function App() {
             <CircleMarker
               key={locale.id}
               center={[locale.lat, locale.lng]}
-              radius={filtro === 'night' ? 10 : 8}
+              radius={7}
               pathOptions={{
                 color: getDotColor(locale),
                 fillColor: getDotFill(locale),
-                fillOpacity: 0.9,
+                fillOpacity: 0.85,
                 weight: getDotWeight(locale)
               }}
               eventHandlers={{
@@ -226,18 +236,17 @@ function App() {
         })}
       </MapContainer>
 
-      {/* Indicatore filtro attivo */}
-      {filtro === 'night' && (
+      {/* Indicatore night */}
+      {filtro === 'night' && !pannelloAperto && (
         <div style={{
-          position: 'absolute', bottom: pannelloAperto ? 'auto' : '20px',
-          top: pannelloAperto ? 'auto' : 'auto',
+          position: 'absolute', bottom: '24px',
           left: '50%', transform: 'translateX(-50%)',
-          zIndex: 999, background: 'rgba(255,215,0,0.15)',
-          border: '1px solid #FFD700', borderRadius: '20px',
-          padding: '6px 16px', fontSize: '12px', color: '#FFD700',
-          display: pannelloAperto ? 'none' : 'block'
+          zIndex: 999, background: 'rgba(212,168,67,0.1)',
+          border: '1px solid rgba(212,168,67,0.3)', borderRadius: '16px',
+          padding: '5px 14px', fontSize: '11px', color: '#D4A843',
+          letterSpacing: '0.5px'
         }}>
-          Locali aperti ora - {getGiornoOggi()}
+          {getGiornoOggi()}
         </div>
       )}
 
@@ -246,73 +255,76 @@ function App() {
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
         zIndex: 1000,
-        background: '#1a1a2e',
-        borderRadius: '20px 20px 0 0',
+        background: '#181818',
+        borderRadius: '16px 16px 0 0',
         maxHeight: '55vh',
         transform: pannelloAperto ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
         overflowY: 'auto',
         color: '#fff',
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
         WebkitOverflowScrolling: 'touch'
       }}>
         {selezionato && (
-          <div style={{ padding: '16px 20px 20px 20px' }}>
+          <div style={{ padding: '14px 24px 24px 24px' }}>
             <div
               onClick={chiudiPannello}
               style={{
-                width: '36px', height: '4px', background: '#555',
-                borderRadius: '2px', margin: '0 auto 14px auto', cursor: 'pointer'
+                width: '32px', height: '3px', background: 'rgba(255,255,255,0.2)',
+                borderRadius: '2px', margin: '0 auto 16px auto', cursor: 'pointer'
               }}
             />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
               {selezionato.logo_url && selezionato.logo_url.length > 0 && (
-                <img src={selezionato.logo_url} alt={selezionato.nome} style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                <img src={selezionato.logo_url} alt={selezionato.nome} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }} />
               )}
               <div>
-                <h2 style={{ margin: '0 0 2px 0', fontSize: '20px', fontWeight: 700 }}>
+                <h2 style={{ margin: '0 0 2px 0', fontSize: '18px', fontWeight: 600, letterSpacing: '0.3px' }}>
                   {selezionato.nome}
                 </h2>
-                <p style={{ margin: 0, color: '#aaa', fontSize: '13px' }}>
+                <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
                   {selezionato.indirizzo}
                 </p>
               </div>
             </div>
 
-            <p style={{ margin: '0 0 16px 0', color: '#b3b3b3', fontSize: '13px', lineHeight: '1.4' }}>
-              {selezionato.descrizione}
+            {selezionato.descrizione && (
+              <p style={{ margin: '0 0 18px 0', color: 'rgba(255,255,255,0.35)', fontSize: '13px', lineHeight: '1.5' }}>
+                {selezionato.descrizione}
+              </p>
+            )}
+
+            <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+              {filtro === 'night' ? 'Stasera' : 'Programma'}
             </p>
 
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 600, color: '#ff4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              {filtro === 'night' ? 'Stasera' : 'Eventi della settimana'}
-            </h3>
+            {eventiVisibili.length === 0 && (
+              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>Nessun evento</p>
+            )}
 
-            {(filtro === 'night' ? selezionato.eventi.filter(function(e) { return e.giorno === getGiornoOggi() }) : selezionato.eventi).map(function(evento, i) {
+            {eventiVisibili.map(function(evento, i) {
               return (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 0',
-                  borderBottom: getEventBorder(i, selezionato.eventi.length)
-                }}>
-                  <div
-                    onClick={function() { apriEvento(evento) }}
-                    style={{ cursor: 'pointer', flex: 1 }}
-                  >
-                    <div style={{ fontSize: '15px', fontWeight: 500 }}>{evento.nome}</div>
-                    <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                <div key={i}
+                  onClick={function() { apriEvento(evento) }}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '11px 0', cursor: 'pointer',
+                    borderBottom: getEventBorder(i, eventiVisibili.length)
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#fff' }}>{evento.nome}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '3px' }}>
                       {evento.giorno} - {evento.orario}
                     </div>
                   </div>
-                  <div
-                    onClick={function() { apriEvento(evento) }}
-                    style={{
-                      background: '#ff0000', color: '#fff', padding: '4px 12px',
-                      borderRadius: '12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'
-                    }}
-                  >
+                  <span style={{
+                    color: 'rgba(255,255,255,0.5)', fontSize: '12px', fontWeight: 500,
+                    background: 'rgba(255,255,255,0.06)', padding: '3px 10px',
+                    borderRadius: '10px'
+                  }}>
                     {evento.prezzo}
-                  </div>
+                  </span>
                 </div>
               )
             })}
@@ -320,12 +332,12 @@ function App() {
         )}
       </div>
 
-      {/* Seconda tendina - Evento (Spotify style) */}
+      {/* Seconda tendina - Evento */}
       <div style={{
         position: 'absolute',
         top: 0, bottom: 0, left: 0, right: 0,
         zIndex: 1100,
-        background: 'linear-gradient(180deg, #282828 0%, #121212 40%)',
+        background: '#121212',
         transform: eventoAperto ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
         overflowY: 'auto',
@@ -334,116 +346,122 @@ function App() {
       }}>
         {eventoAperto && (
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-            {/* Top bar con freccia */}
+            {/* Top bar */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 16px', flexShrink: 0
+              padding: '14px 20px', flexShrink: 0
             }}>
               <div
                 onClick={chiudiEvento}
                 style={{
-                  width: '36px', height: '36px', display: 'flex',
+                  width: '32px', height: '32px', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', fontSize: '22px', color: '#fff'
+                  cursor: 'pointer', fontSize: '20px', color: 'rgba(255,255,255,0.6)'
                 }}
               >
                 &#8964;
               </div>
-              <div style={{ fontSize: '12px', color: '#aaa', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', textTransform: 'uppercase' }}>
                 {hasLogo ? '' : (selezionato ? selezionato.nome : '')}
               </div>
-              <div style={{ width: '36px' }}></div>
+              <div style={{ width: '32px' }}></div>
             </div>
 
-            {/* Logo organizzazione centrato */}
+            {/* Logo */}
             {hasLogo && (
-              <div style={{ textAlign: 'center', padding: '0 20px 12px 20px' }}>
+              <div style={{ textAlign: 'center', padding: '0 20px 14px 20px' }}>
                 <img
                   src={selezionato.logo_url}
                   alt={selezionato.nome}
-                  style={{ height: '40px', objectFit: 'contain', opacity: 0.9 }}
+                  style={{ height: '36px', objectFit: 'contain', opacity: 0.7 }}
                 />
               </div>
             )}
 
             {/* Locandina */}
-            <div style={{ padding: '0 32px', flexShrink: 0 }}>
+            <div style={{ padding: '0 36px', flexShrink: 0 }}>
               {hasEventImage ? (
                 <img
                   src={eventoAperto.immagine_url}
                   alt={eventoAperto.nome}
                   style={{
-                    width: '100%', borderRadius: '8px',
+                    width: '100%', borderRadius: '6px',
                     aspectRatio: '1/1', objectFit: 'cover', display: 'block',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.6)'
                   }}
                 />
               ) : (
                 <div style={{
-                  width: '100%', borderRadius: '8px',
-                  aspectRatio: '1/1', background: '#333',
+                  width: '100%', borderRadius: '6px',
+                  aspectRatio: '1/1', background: '#282828',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '80px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                  fontSize: '64px', boxShadow: '0 12px 32px rgba(0,0,0,0.6)'
                 }}>
                   🎵
                 </div>
               )}
             </div>
 
-            {/* Info evento */}
-            <div style={{ padding: '24px 32px', flex: 1 }}>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 700 }}>
+            {/* Info */}
+            <div style={{ padding: '28px 36px', flex: 1 }}>
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 700, letterSpacing: '0.2px' }}>
                 {eventoAperto.nome}
               </h2>
 
               {hasFrase && (
-                <p style={{ margin: '0 0 16px 0', color: '#b3b3b3', fontSize: '15px' }}>
+                <p style={{ margin: '0 0 18px 0', color: 'rgba(255,255,255,0.5)', fontSize: '14px', lineHeight: '1.4' }}>
                   {eventoAperto.frase}
                 </p>
               )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', color: '#b3b3b3', fontSize: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
                 <span>{eventoAperto.giorno}</span>
-                <span style={{ color: '#555' }}>|</span>
+                <span style={{ opacity: 0.3 }}>|</span>
                 <span>{eventoAperto.orario}</span>
               </div>
 
-              <div style={{
-                display: 'inline-block', background: '#ff0000', padding: '10px 32px',
-                borderRadius: '24px', fontSize: '16px', fontWeight: 700
+              <span style={{
+                display: 'inline-block',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                padding: '8px 24px',
+                borderRadius: '20px', fontSize: '15px', fontWeight: 600,
+                color: '#fff'
               }}>
                 {eventoAperto.prezzo}
-              </div>
+              </span>
 
-              {/* Audio player Spotify style */}
+              {/* Audio */}
               {hasAudio && (
-                <div style={{ marginTop: '28px' }}>
+                <div style={{ marginTop: '32px' }}>
                   <audio
                     ref={audioRefState}
                     src={eventoAperto.audio_url}
                     preload="auto"
                     onEnded={function() { setPlaying(false) }}
                   />
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '16px'
-                  }}>
-                    <div
-                      onClick={toggleAudio}
-                      style={{
-                        width: '48px', height: '48px', borderRadius: '50%',
-                        background: '#1DB954', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-                        boxShadow: '0 4px 12px rgba(29,185,84,0.3)'
-                      }}
-                    >
-                      <span style={{ fontSize: '20px', color: '#000', marginLeft: playing ? '0' : '2px' }}>
+                  <div
+                    onClick={toggleAudio}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{
+                      width: '44px', height: '44px', borderRadius: '50%',
+                      background: '#fff', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '18px', color: '#000', marginLeft: playing ? '0' : '2px' }}>
                         {playing ? 'II' : '\u25B6'}
                       </span>
                     </div>
                     <div>
-                      <div style={{ fontSize: '14px', fontWeight: 500 }}>Ascolta il sound</div>
-                      <div style={{ fontSize: '12px', color: '#888' }}>
-                        {playing ? 'In riproduzione...' : 'Tocca per riprodurre'}
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>
+                        {playing ? 'In riproduzione' : 'Ascolta'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
+                        Sound della serata
                       </div>
                     </div>
                   </div>
