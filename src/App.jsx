@@ -285,10 +285,10 @@ function App() {
             </p>
 
             <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 600, color: '#ff4444', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              Eventi della settimana
+              {filtro === 'night' ? 'Stasera' : 'Eventi della settimana'}
             </h3>
 
-            {selezionato.eventi.map(function(evento, i) {
+            {(filtro === 'night' ? selezionato.eventi.filter(function(e) { return e.giorno === getGiornoOggi() }) : selezionato.eventi).map(function(evento, i) {
               return (
                 <div key={i} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
