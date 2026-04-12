@@ -153,12 +153,19 @@ function App() {
                 borderRadius: '2px', margin: '0 auto 16px auto', cursor: 'pointer'
               }}
             />
-            <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 600 }}>
-              {selezionato.nome}
-            </h2>
-            <p style={{ margin: '0 0 8px 0', color: '#aaa', fontSize: '14px' }}>
-              {selezionato.indirizzo}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+              {selezionato.logo_url && selezionato.logo_url.length > 0 && (
+                <img src={selezionato.logo_url} alt={selezionato.nome} style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+              )}
+              <div>
+                <h2 style={{ margin: '0 0 2px 0', fontSize: '22px', fontWeight: 600 }}>
+                  {selezionato.nome}
+                </h2>
+                <p style={{ margin: 0, color: '#aaa', fontSize: '14px' }}>
+                  {selezionato.indirizzo}
+                </p>
+              </div>
+            </div>
             <p style={{ margin: '0 0 20px 0', color: '#ccc', fontSize: '14px', lineHeight: '1.4' }}>
               {selezionato.descrizione}
             </p>

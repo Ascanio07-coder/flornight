@@ -209,6 +209,24 @@ function Staff() {
     })
   }
 
+  function caricaLogo() {
+    var fileInput = document.getElementById('logoInput')
+    var file = fileInput && fileInput.files[0]
+    if (!file) { alert('Seleziona un file'); return }
+    var timestamp = Date.now()
+    var nomeFile = staffInfo.locale_id + 'logo' + timestamp + '_' + file.name
+    supabase.storage.from('locandine').upload(nomeFile, file).then(function(res) {
+      if (res.error) { alert('Errore upload: ' + res.error.message); return }
+      var urlRes = supabase.storage.from('locandine').getPublicUrl(nomeFile)
+      var logoUrl = urlRes.data.publicUrl
+      supabase.from('locali').update({ logo_url: logoUrl }).eq('id', staffInfo.locale_id).then(function(res2) {
+        if (res2.error) { alert('Errore: ' + res2.error.message); return }
+        caricaLocale(staffInfo.locale_id)
+        alert('Logo aggiornato!')
+      })
+    })
+  }
+
   function iniziaModifica(evento) {
     setEventoEdit(evento.id)
     setFraseEvento(evento.frase || '')
@@ -266,8 +284,8 @@ function Staff() {
   }
 
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
-  var fileStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
 
+  // LOGIN
   if (!user) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -280,6 +298,7 @@ function Staff() {
     )
   }
 
+  // CARICAMENTO
   if (!staffInfo || !locale) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -290,6 +309,7 @@ function Staff() {
     )
   }
 
+  // VISTA ORGANIZZATORE
   if (staffInfo.ruolo === 'organizzatore') {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -318,11 +338,11 @@ function Staff() {
               {eventoEdit === ev.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333' }}>
                   <label style={{ fontSize: '13px', color: '#aaa' }}>Locandina (immagine)</label>
-                  <input type="file" accept="image/*" ref={imgRef} style={fileStyle} />
+                  <input type="file" accept="image/*" ref={imgRef} style={inputStyle} />
                   <label style={{ fontSize: '13px', color: '#aaa' }}>Frase breve</label>
                   <input placeholder="La notte che non dimenticherai..." value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
                   <label style={{ fontSize: '13px', color: '#aaa' }}>Canzone (audio)</label>
-                  <input type="file" accept="audio/*" ref={audioFileRef} style={fileStyle} />
+                  <input type="file" accept="audio/*" ref={audioFileRef} style={inputStyle} />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     <button onClick={function() { salvaModifica(ev.id) }} disabled={caricando} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: caricando ? '#666' : '#ff0000', color: '#fff', flex: 1 }}>
                       {caricando ? 'Caricamento...' : 'Salva'}
@@ -349,6 +369,7 @@ function Staff() {
     )
   }
 
+  // VISTA PROPRIETARIO
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -360,8 +381,22 @@ function Staff() {
       </div>
 
       <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
-        <h2 style={{ margin: '0 0 4px 0', fontSize: '18px' }}>{locale.nome}</h2>
-        <p style={{ margin: 0, color: '#aaa', fontSize: '13px' }}>{locale.indirizzo}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          {locale.logo_url ? (
+            <img src={locale.logo_url} alt={locale.nome} style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: '50px', height: '50px', borderRadius: '8px', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>?</div>
+          )}
+          <div>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: '18px' }}>{locale.nome}</h2>
+            <p style={{ margin: 0, color: '#aaa', fontSize: '13px' }}>{locale.indirizzo}</p>
+          </div>
+        </div>
+        <label style={{ fontSize: '13px', color: '#aaa' }}>Cambia logo del locale</label>
+        <input type="file" accept="image/*" id="logoInput" style={{ width: '100%', padding: '10px', marginBottom: '4px', marginTop: '4px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
+        <button onClick={function() { caricaLogo() }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>
+          Carica logo
+        </button>
       </div>
 
       <h3 style={{ color: '#ff4444', fontSize: '16px', letterSpacing: '1px', marginBottom: '12px' }}>CALENDARIO EVENTI</h3>
