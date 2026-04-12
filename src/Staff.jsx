@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 function Staff() {
@@ -34,6 +34,10 @@ function Staff() {
   var errore = errState[0]
   var setErrore = errState[1]
 
+  var loadState = useState(false)
+  var caricando = loadState[0]
+  var setCaricando = loadState[1]
+
   var s1 = useState(''); var nomeEvento = s1[0]; var setNomeEvento = s1[1]
   var s2 = useState('Lunedi'); var giornoEvento = s2[0]; var setGiornoEvento = s2[1]
   var s3 = useState(''); var orarioEvento = s3[0]; var setOrarioEvento = s3[1]
@@ -42,15 +46,15 @@ function Staff() {
   var s5 = useState(''); var orgEmail = s5[0]; var setOrgEmail = s5[1]
   var s6 = useState(''); var orgPassword = s6[0]; var setOrgPassword = s6[1]
   var s7 = useState(''); var orgNome = s7[0]; var setOrgNome = s7[1]
-  var s8 = useState(''); var orgEventoId = s8[0]; var setOrgEventoId = s8[1]
 
-  var s9 = useState(''); var immagineEvento = s9[0]; var setImmagineEvento = s9[1]
-  var s10 = useState(''); var audioEvento = s10[0]; var setAudioEvento = s10[1]
-  var s11 = useState(''); var fraseEvento = s11[0]; var setFraseEvento = s11[1]
+  var s8 = useState(''); var fraseEvento = s8[0]; var setFraseEvento = s8[1]
 
   var editState = useState(null)
   var eventoEdit = editState[0]
   var setEventoEdit = editState[1]
+
+  var imgRef = useRef(null)
+  var audioFileRef = useRef(null)
 
   useEffect(function() {
     supabase.auth.getSession().then(function(res) {
@@ -207,25 +211,50 @@ function Staff() {
 
   function iniziaModifica(evento) {
     setEventoEdit(evento.id)
-    setImmagineEvento(evento.immagine_url || '')
-    setAudioEvento(evento.audio_url || '')
     setFraseEvento(evento.frase || '')
   }
 
-  function salvaModifica(eventoId) {
-    supabase.from('eventi').update({
-      immagine_url: immagineEvento || null,
-      audio_url: audioEvento || null,
-      frase: fraseEvento || null
-    }).eq('id', eventoId).then(function(res) {
-      if (res.error) { alert('Errore: ' + res.error.message); return }
-      setEventoEdit(null)
-      setImmagineEvento(''); setAudioEvento(''); setFraseEvento('')
-      if (staffInfo.ruolo === 'proprietario') {
-        caricaEventi(staffInfo.locale_id)
-      } else {
-        caricaEventiOrganizzatore(staffInfo.id)
+  function uploadFile(file, bucket, eventoId) {
+    var timestamp = Date.now()
+    var nomeFile = eventoId + '' + timestamp + '' + file.name
+    return supabase.storage.from(bucket).upload(nomeFile, file).then(function(res) {
+      if (res.error) {
+        alert('Errore upload: ' + res.error.message)
+        return null
       }
+      var urlRes = supabase.storage.from(bucket).getPublicUrl(nomeFile)
+      return urlRes.data.publicUrl
+    })
+  }
+
+  function salvaModifica(eventoId) {
+    setCaricando(true)
+    var imgFile = imgRef.current && imgRef.current.files[0]
+    var audFile = audioFileRef.current && audioFileRef.current.files[0]
+
+    var imgPromise = imgFile ? uploadFile(imgFile, 'locandine', eventoId) : Promise.resolve(null)
+    var audPromise = audFile ? uploadFile(audFile, 'audio', eventoId) : Promise.resolve(null)
+
+    imgPromise.then(function(imgUrl) {
+      audPromise.then(function(audUrl) {
+        var aggiornamento = { frase: fraseEvento || null }
+        if (imgUrl) aggiornamento.immagine_url = imgUrl
+        if (audUrl) aggiornamento.audio_url = audUrl
+
+        supabase.from('eventi').update(aggiornamento).eq('id', eventoId).then(function(res) {
+          setCaricando(false)
+          if (res.error) { alert('Errore: ' + res.error.message); return }
+          setEventoEdit(null)
+          setFraseEvento('')
+          if (imgRef.current) imgRef.current.value = ''
+          if (audioFileRef.current) audioFileRef.current.value = ''
+          if (staffInfo.ruolo === 'proprietario') {
+            caricaEventi(staffInfo.locale_id)
+          } else {
+            caricaEventiOrganizzatore(staffInfo.id)
+          }
+        })
+      })
     })
   }
 
@@ -237,6 +266,7 @@ function Staff() {
   }
 
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
+  var fileStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
 
   if (!user) {
     return (
@@ -245,9 +275,7 @@ function Staff() {
         <input type="email" placeholder="Email" value={email} onChange={function(e) { setEmail(e.target.value) }} style={inputStyle} />
         <input type="password" placeholder="Password" value={pass} onChange={function(e) { setPass(e.target.value) }} onKeyDown={function(e) { if (e.key === 'Enter') login() }} style={inputStyle} />
         {errore && <p style={{ color: '#ff4444', fontSize: '14px', margin: '0 0 8px 0' }}>{errore}</p>}
-        <button onClick={login} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>
-          Accedi
-        </button>
+        <button onClick={login} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>Accedi</button>
       </div>
     )
   }
@@ -262,7 +290,6 @@ function Staff() {
     )
   }
 
-  // VISTA ORGANIZZATORE
   if (staffInfo.ruolo === 'organizzatore') {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -290,12 +317,15 @@ function Staff() {
 
               {eventoEdit === ev.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333' }}>
-                  <input placeholder="URL locandina" value={immagineEvento} onChange={function(e) { setImmagineEvento(e.target.value) }} style={inputStyle} />
-                  <input placeholder="Frase breve" value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
-                  <input placeholder="URL canzone" value={audioEvento} onChange={function(e) { setAudioEvento(e.target.value) }} style={inputStyle} />
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={function() { salvaModifica(ev.id) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', flex: 1 }}>
-                      Salva
+                  <label style={{ fontSize: '13px', color: '#aaa' }}>Locandina (immagine)</label>
+                  <input type="file" accept="image/*" ref={imgRef} style={fileStyle} />
+                  <label style={{ fontSize: '13px', color: '#aaa' }}>Frase breve</label>
+                  <input placeholder="La notte che non dimenticherai..." value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
+                  <label style={{ fontSize: '13px', color: '#aaa' }}>Canzone (audio)</label>
+                  <input type="file" accept="audio/*" ref={audioFileRef} style={fileStyle} />
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button onClick={function() { salvaModifica(ev.id) }} disabled={caricando} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: caricando ? '#666' : '#ff0000', color: '#fff', flex: 1 }}>
+                      {caricando ? 'Caricamento...' : 'Salva'}
                     </button>
                     <button onClick={function() { setEventoEdit(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', flex: 1 }}>
                       Annulla
@@ -319,7 +349,6 @@ function Staff() {
     )
   }
 
-  // VISTA PROPRIETARIO
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
