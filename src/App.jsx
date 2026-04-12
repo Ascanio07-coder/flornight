@@ -3,67 +3,76 @@ import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from './supabase'
 
-const firenzeBounds = [
+var firenzeBounds = [
   [43.7270, 11.1540],
-  [43.8130, 11.3300],
+  [43.8130, 11.3300]
 ]
 
 function App() {
-  const [locali, setLocali] = useState([])
-  const [selezionato, setSelezionato] = useState(null)
-  const [altezzaPannello, setAltezzaPannello] = useState(40)
-  const trascinando = useRef(false)
-  const yInizio = useRef(0)
-  const altezzaInizio = useRef(40)
+  var localiState = useState([])
+  var locali = localiState[0]
+  var setLocali = localiState[1]
 
-  useEffect(() => {
-    async function caricaDati() {
-      const { data: localiData } = await supabase.from('locali').select('*')
-      const { data: eventiData } = await supabase.from('eventi').select('*')
-      const localiConEventi = localiData.map(locale => ({
-        ...locale,
-        eventi: eventiData.filter(e => e.locale_id === locale.id)
-      }))
-      setLocali(localiConEventi)
-    }
-    caricaDati()
+  var selState = useState(null)
+  var selezionato = selState[0]
+  var setSelezionato = selState[1]
+
+  var aperto = useState(false)
+  var pannelloAperto = aperto[0]
+  var setPannelloAperto = aperto[1]
+
+  useEffect(function() {
+    supabase.from('locali').select('*').then(function(res1) {
+      supabase.from('eventi').select('*').then(function(res2) {
+        var locs = res1.data || []
+        var evs = res2.data || []
+        var risultato = locs.map(function(locale) {
+          return {
+            id: locale.id,
+            nome: locale.nome,
+            indirizzo: locale.indirizzo,
+            descrizione: locale.descrizione,
+            lat: locale.lat,
+            lng: locale.lng,
+            eventi: evs.filter(function(e) { return e.locale_id === locale.id })
+          }
+        })
+        setLocali(risultato)
+      })
+    })
   }, [])
-
-  function iniziaTrascinamento(e) {
-    trascinando.current = true
-    yInizio.current = e.touches ? e.touches[0].clientY : e.clientY
-    altezzaInizio.current = altezzaPannello
-  }
-
-  function duranteTrascinamento(e) {
-    if (!trascinando.current) return
-    const yCorrente = e.touches ? e.touches[0].clientY : e.clientY
-    const diff = yInizio.current - yCorrente
-    const altezzaFinestra = window.innerHeight
-    const nuovaPercentuale = altezzaInizio.current + (diff / altezzaFinestra) * 100
-    setAltezzaPannello(Math.min(85, Math.max(15, nuovaPercentuale)))
-  }
-
-  function fineTrascinamento() {
-    trascinando.current = false
-    if (altezzaPannello < 20) {
-      setSelezionato(null)
-      setAltezzaPannello(40)
-    } else if (altezzaPannello < 35) {
-      setAltezzaPannello(25)
-    } else {
-      setAltezzaPannello(Math.min(85, altezzaPannello))
-    }
-  }
 
   function selezionaLocale(locale) {
     setSelezionato(locale)
-    setAltezzaPannello(40)
+    setPannelloAperto(true)
+  }
+
+  function chiudiPannello() {
+    setPannelloAperto(false)
+    setSelezionato(null)
+  }
+
+  function vaiAEvento(eventoId) {
+    window.location.href = '/evento/' + eventoId
+  }
+
+  function getBorderColor(locale) {
+    if (selezionato && selezionato.id === locale.id) return '#ffffff'
+    return '#ff0000'
+  }
+
+  function getBorderWeight(locale) {
+    if (selezionato && selezionato.id === locale.id) return 3
+    return 2
+  }
+
+  function getEventBorder(i, totale) {
+    if (i < totale - 1) return '1px solid #333'
+    return 'none'
   }
 
   return (
     <div style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#1a1a2e' }}>
-      {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000, background: 'rgba(0,0,0,0.85)',
@@ -74,7 +83,6 @@ function App() {
         </h1>
       </div>
 
-      {/* Mappa */}
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
@@ -86,85 +94,76 @@ function App() {
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap &copy; CARTO'
+          attribution="OpenStreetMap CARTO"
         />
-        {locali.map(locale => (
-          <CircleMarker
-            key={locale.id}
-            center={[locale.lat, locale.lng]}
-            radius={8}
-            pathOptions={{
-              color: selezionato?.id === locale.id ? '#ffffff' : '#ff0000',
-              fillColor: '#ff0000',
-              fillOpacity: 0.9,
-              weight: selezionato?.id === locale.id ? 3 : 2
-            }}
-            eventHandlers={{
-              click: () => selezionaLocale(locale)
-            }}
-          />
-        ))}
+        {locali.map(function(locale) {
+          return (
+            <CircleMarker
+              key={locale.id}
+              center={[locale.lat, locale.lng]}
+              radius={8}
+              pathOptions={{
+                color: getBorderColor(locale),
+                fillColor: '#ff0000',
+                fillOpacity: 0.9,
+                weight: getBorderWeight(locale)
+              }}
+              eventHandlers={{
+                click: function() { selezionaLocale(locale) }
+              }}
+            />
+          )
+        })}
       </MapContainer>
 
-      {/* Pannello trascinabile */}
-      <div
-        onTouchMove={duranteTrascinamento}
-        onTouchEnd={fineTrascinamento}
-        onMouseMove={duranteTrascinamento}
-        onMouseUp={fineTrascinamento}
-        style={{
-          position: 'absolute',
-          bottom: 0, left: 0, right: 0,
-          zIndex: 1000,
-          background: '#1a1a2e',
-          borderRadius: '20px 20px 0 0',
-          height: selezionato ? altezzaPannello + 'vh' : '0vh',
-          transition: trascinando.current ? 'none' : 'height 0.3s ease',
-          overflow: 'hidden',
-          color: '#fff',
-        }}
-      >
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        zIndex: 1000,
+        background: '#1a1a2e',
+        borderRadius: '20px 20px 0 0',
+        maxHeight: '60vh',
+        transform: pannelloAperto ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s ease',
+        overflowY: 'auto',
+        color: '#fff'
+      }}>
         {selezionato && (
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Maniglia trascinabile */}
+          <div style={{ padding: '20px' }}>
             <div
-              onTouchStart={iniziaTrascinamento}
-              onMouseDown={iniziaTrascinamento}
+              onClick={chiudiPannello}
               style={{
-                padding: '12px', cursor: 'grab', flexShrink: 0,
-                display: 'flex', justifyContent: 'center'
-              }}
-            >
-              <div style={{
                 width: '40px', height: '4px', background: '#555',
-                borderRadius: '2px'
-              }} />
-            </div>
+                borderRadius: '2px', margin: '0 auto 16px auto', cursor: 'pointer'
+              }}
+            />
 
-            {/* Contenuto scrollabile */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '0 20px 20px 20px' }}>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 600 }}>
-                {selezionato.nome}
-              </h2>
-              <p style={{ margin: '0 0 8px 0', color: '#aaa', fontSize: '14px' }}>
-                {selezionato.indirizzo}
-              </p>
-              <p style={{ margin: '0 0 20px 0', color: '#ccc', fontSize: '14px', lineHeight: '1.4' }}>
-                {selezionato.descrizione}
-              </p>
-              <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 500, color: '#ff4444', letterSpacing: '1px' }}>
-                EVENTI DELLA SETTIMANA
-              </h3>
-              {selezionato.eventi.map((evento, i) => (
+            <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 600 }}>
+              {selezionato.nome}
+            </h2>
+            <p style={{ margin: '0 0 8px 0', color: '#aaa', fontSize: '14px' }}>
+              {selezionato.indirizzo}
+            </p>
+            <p style={{ margin: '0 0 20px 0', color: '#ccc', fontSize: '14px', lineHeight: '1.4' }}>
+              {selezionato.descrizione}
+            </p>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 500, color: '#ff4444', letterSpacing: '1px' }}>
+              EVENTI DELLA SETTIMANA
+            </h3>
+            {selezionato.eventi.map(function(evento, i) {
+              return (
                 <div key={i} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '12px 0',
-                  borderBottom: i < selezionato.eventi.length - 1 ? '1px solid #333' : 'none'
+                  borderBottom: getEventBorder(i, selezionato.eventi.length)
                 }}>
-                  <div>
+                  <div
+                    onClick={function() { vaiAEvento(evento.id) }}
+                    style={{ cursor: 'pointer', flex: 1 }}
+                  >
                     <div style={{ fontSize: '15px', fontWeight: 500 }}>{evento.nome}</div>
                     <div style={{ fontSize: '13px', color: '#aaa', marginTop: '2px' }}>
-                      {evento.giorno} · {evento.orario}
+                      {evento.giorno} - {evento.orario}
                     </div>
                   </div>
                   <div style={{
@@ -174,8 +173,8 @@ function App() {
                     {evento.prezzo}
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
         )}
       </div>
