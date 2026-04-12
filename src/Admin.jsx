@@ -1,16 +1,26 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
-var ADMIN_PASSWORD = 'flornight2026'
-
 function Admin() {
-  var autenticatoState = useState(false)
-  var autenticato = autenticatoState[0]
-  var setAutenticato = autenticatoState[1]
+  var emailState = useState('')
+  var email = emailState[0]
+  var setEmail = emailState[1]
 
-  var passwordState = useState('')
-  var password = passwordState[0]
-  var setPassword = passwordState[1]
+  var passState = useState('')
+  var pass = passState[0]
+  var setPass = passState[1]
+
+  var userState = useState(null)
+  var user = userState[0]
+  var setUser = userState[1]
+
+  var staffState = useState(null)
+  var staffInfo = staffState[0]
+  var setStaffInfo = staffState[1]
+
+  var errState = useState('')
+  var errore = errState[0]
+  var setErrore = errState[1]
 
   var localiState = useState([])
   var locali = localiState[0]
@@ -20,9 +30,9 @@ function Admin() {
   var eventi = eventiState[0]
   var setEventi = eventiState[1]
 
-  var staffState = useState([])
-  var staffList = staffState[0]
-  var setStaffList = staffState[1]
+  var staffListState = useState([])
+  var staffList = staffListState[0]
+  var setStaffList = staffListState[1]
 
   var selState = useState(null)
   var localeSelezionato = selState[0]
@@ -53,8 +63,46 @@ function Admin() {
   var s17 = useState(''); var staffLocaleId = s17[0]; var setStaffLocaleId = s17[1]
 
   useEffect(function() {
-    if (autenticato) caricaDati()
-  }, [autenticato])
+    supabase.auth.getSession().then(function(res) {
+      if (res.data.session) {
+        setUser(res.data.session.user)
+        verificaAdmin(res.data.session.user.id)
+      }
+    })
+  }, [])
+
+  function verificaAdmin(userId) {
+    supabase.from('staff').select('*').eq('user_id', userId).eq('ruolo', 'admin').single().then(function(res) {
+      if (res.data) {
+        setStaffInfo(res.data)
+        caricaDati()
+      } else {
+        setErrore('Non hai i permessi di admin.')
+      }
+    })
+  }
+
+  function login() {
+    setErrore('')
+    supabase.auth.signInWithPassword({ email: email, password: pass }).then(function(res) {
+      if (res.error) {
+        setErrore('Email o password errati')
+      } else {
+        setUser(res.data.user)
+        verificaAdmin(res.data.user.id)
+      }
+    })
+  }
+
+  function logout() {
+    supabase.auth.signOut().then(function() {
+      setUser(null)
+      setStaffInfo(null)
+      setLocali([])
+      setEventi([])
+      setStaffList([])
+    })
+  }
 
   function caricaDati() {
     supabase.from('locali').select('*').order('id').then(function(res) {
@@ -66,14 +114,6 @@ function Admin() {
     supabase.from('staff').select('*').order('id').then(function(res) {
       setStaffList(res.data || [])
     })
-  }
-
-  function handleLogin() {
-    if (password === ADMIN_PASSWORD) {
-      setAutenticato(true)
-    } else {
-      alert('Password errata')
-    }
   }
 
   function aggiungiLocale() {
@@ -143,21 +183,25 @@ function Admin() {
         user_id: userId,
         locale_id: parseInt(staffLocaleId),
         nome: staffNome,
-        ruolo: 'staff'
+        ruolo: 'proprietario'
       }).then(function(res2) {
         if (res2.error) {
           alert('Errore collegamento staff: ' + res2.error.message)
           return
         }
-        alert('Staff creato! Email: ' + staffEmail + ' Password: ' + staffPassword)
+        alert('Proprietario creato! Email: ' + staffEmail + ' Password: ' + staffPassword)
         setStaffEmail(''); setStaffPassword(''); setStaffNome(''); setStaffLocaleId('')
-        supabase.auth.signOut()
-        caricaDati()
+        supabase.auth.signOut().then(function() {
+          supabase.auth.signInWithPassword({ email: email, password: pass }).then(function(loginRes) {
+            setUser(loginRes.data.user)
+            verificaAdmin(loginRes.data.user.id)
+          })
+        })
       })
     })
   }
 
-  function eliminaStaff(staffId, userId) {
+  function eliminaStaff(staffId) {
     if (!window.confirm('Eliminare questo staff?')) return
     supabase.from('staff').delete().eq('id', staffId).then(function() {
       caricaDati()
@@ -170,32 +214,44 @@ function Admin() {
     return 'Sconosciuto'
   }
 
+  function getRuoloLabel(ruolo) {
+    if (ruolo === 'admin') return 'Admin'
+    if (ruolo === 'proprietario') return 'Proprietario'
+    if (ruolo === 'organizzatore') return 'Organizzatore'
+    return ruolo
+  }
+
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
 
-  if (!autenticato) {
+  // LOGIN
+  if (!user || !staffInfo) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
         <h1 style={{ textAlign: 'center', letterSpacing: '3px', marginBottom: '30px' }}>FLORNIGHT ADMIN</h1>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={function(e) { setPassword(e.target.value) }}
-          onKeyDown={function(e) { if (e.key === 'Enter') handleLogin() }}
-          style={inputStyle}
-        />
-        <button onClick={handleLogin} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>
+        {errore && <p style={{ color: '#ff4444', fontSize: '14px', margin: '0 0 8px 0', textAlign: 'center' }}>{errore}</p>}
+        <input type="email" placeholder="Email" value={email} onChange={function(e) { setEmail(e.target.value) }} style={inputStyle} />
+        <input type="password" placeholder="Password" value={pass} onChange={function(e) { setPass(e.target.value) }} onKeyDown={function(e) { if (e.key === 'Enter') login() }} style={inputStyle} />
+        <button onClick={login} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%', marginTop: '8px' }}>
           Accedi
         </button>
+        {user && !staffInfo && (
+          <button onClick={logout} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', width: '100%', marginTop: '8px' }}>
+            Esci
+          </button>
+        )}
       </div>
     )
   }
 
+  // PANNELLO ADMIN
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h1 style={{ letterSpacing: '3px', fontSize: '20px', margin: 0 }}>FLORNIGHT ADMIN</h1>
-        <a href="/" style={{ color: '#aaa', fontSize: '14px' }}>Mappa</a>
+        <h1 style={{ letterSpacing: '3px', fontSize: '20px', margin: 0 }}>ADMIN</h1>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <a href="/" style={{ color: '#aaa', fontSize: '14px' }}>Mappa</a>
+          <button onClick={logout} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', background: '#333', color: '#fff' }}>Esci</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
@@ -209,22 +265,15 @@ function Admin() {
 
       {tab === 'locali' && (
         <div>
-          <h2 style={{ color: '#ff4444', fontSize: '16px', letterSpacing: '1px', marginBottom: '12px' }}>LOCALI</h2>
-
           {locali.map(function(l) {
             return (
               <div key={l.id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px', border: localeSelezionato === l.id ? '1px solid #ff0000' : '1px solid transparent' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div
-                    onClick={function() { setLocaleSelezionato(localeSelezionato === l.id ? null : l.id) }}
-                    style={{ cursor: 'pointer', flex: 1 }}
-                  >
+                  <div onClick={function() { setLocaleSelezionato(localeSelezionato === l.id ? null : l.id) }} style={{ cursor: 'pointer', flex: 1 }}>
                     <strong>{l.nome}</strong>
                     <div style={{ fontSize: '13px', color: '#aaa' }}>{l.indirizzo}</div>
                   </div>
-                  <button onClick={function() { eliminaLocale(l.id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>
-                    Elimina
-                  </button>
+                  <button onClick={function() { eliminaLocale(l.id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>Elimina</button>
                 </div>
 
                 {localeSelezionato === l.id && (
@@ -238,7 +287,6 @@ function Admin() {
                         </div>
                       )
                     })}
-
                     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <input placeholder="Nome evento" value={nomeEvento} onChange={function(e) { setNomeEvento(e.target.value) }} style={inputStyle} />
                       <select value={giornoEvento} onChange={function(e) { setGiornoEvento(e.target.value) }} style={inputStyle}>
@@ -250,14 +298,12 @@ function Admin() {
                         <option value="Sabato">Sabato</option>
                         <option value="Domenica">Domenica</option>
                       </select>
-                      <input placeholder="Orario (es. 23:00 - 04:00)" value={orarioEvento} onChange={function(e) { setOrarioEvento(e.target.value) }} style={inputStyle} />
-                      <input placeholder="Prezzo (es. 15 euro)" value={prezzoEvento} onChange={function(e) { setPrezzoEvento(e.target.value) }} style={inputStyle} />
-                      <input placeholder="Frase breve (opzionale)" value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
-                      <input placeholder="URL locandina (opzionale)" value={immagineEvento} onChange={function(e) { setImmagineEvento(e.target.value) }} style={inputStyle} />
-                      <input placeholder="URL canzone (opzionale)" value={audioEvento} onChange={function(e) { setAudioEvento(e.target.value) }} style={inputStyle} />
-                      <button onClick={aggiungiEvento} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>
-                        + Aggiungi evento
-                      </button>
+                      <input placeholder="Orario" value={orarioEvento} onChange={function(e) { setOrarioEvento(e.target.value) }} style={inputStyle} />
+                      <input placeholder="Prezzo" value={prezzoEvento} onChange={function(e) { setPrezzoEvento(e.target.value) }} style={inputStyle} />
+                      <input placeholder="Frase (opz.)" value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
+                      <input placeholder="URL locandina (opz.)" value={immagineEvento} onChange={function(e) { setImmagineEvento(e.target.value) }} style={inputStyle} />
+                      <input placeholder="URL canzone (opz.)" value={audioEvento} onChange={function(e) { setAudioEvento(e.target.value) }} style={inputStyle} />
+                      <button onClick={aggiungiEvento} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>+ Aggiungi evento</button>
                     </div>
                   </div>
                 )}
@@ -266,41 +312,35 @@ function Admin() {
           })}
 
           <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginTop: '20px' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Aggiungi nuovo locale</h3>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Aggiungi locale</h3>
             <input placeholder="Nome" value={nomeLocale} onChange={function(e) { setNomeLocale(e.target.value) }} style={inputStyle} />
             <input placeholder="Indirizzo" value={indirizzoLocale} onChange={function(e) { setIndirizzoLocale(e.target.value) }} style={inputStyle} />
             <input placeholder="Descrizione" value={descrizioneLocale} onChange={function(e) { setDescrizioneLocale(e.target.value) }} style={inputStyle} />
-            <input placeholder="Latitudine (es. 43.7700)" value={latLocale} onChange={function(e) { setLatLocale(e.target.value) }} style={inputStyle} />
-            <input placeholder="Longitudine (es. 11.2550)" value={lngLocale} onChange={function(e) { setLngLocale(e.target.value) }} style={inputStyle} />
-            <input placeholder="URL logo (opzionale)" value={logoLocale} onChange={function(e) { setLogoLocale(e.target.value) }} style={inputStyle} />
-            <button onClick={aggiungiLocale} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>
-              + Aggiungi locale
-            </button>
+            <input placeholder="Latitudine" value={latLocale} onChange={function(e) { setLatLocale(e.target.value) }} style={inputStyle} />
+            <input placeholder="Longitudine" value={lngLocale} onChange={function(e) { setLngLocale(e.target.value) }} style={inputStyle} />
+            <input placeholder="URL logo (opz.)" value={logoLocale} onChange={function(e) { setLogoLocale(e.target.value) }} style={inputStyle} />
+            <button onClick={aggiungiLocale} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>+ Aggiungi locale</button>
           </div>
         </div>
       )}
 
       {tab === 'staff' && (
         <div>
-          <h2 style={{ color: '#ff4444', fontSize: '16px', letterSpacing: '1px', marginBottom: '12px' }}>STAFF</h2>
-
-          {staffList.map(function(s) {
+          {staffList.filter(function(s) { return s.ruolo !== 'admin' }).map(function(s) {
             return (
               <div key={s.id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <strong>{s.nome}</strong>
-                  <div style={{ fontSize: '13px', color: '#aaa' }}>{getNomeLocale(s.locale_id)}</div>
+                  <div style={{ fontSize: '13px', color: '#aaa' }}>{getNomeLocale(s.locale_id)} - {getRuoloLabel(s.ruolo)}</div>
                 </div>
-                <button onClick={function() { eliminaStaff(s.id, s.user_id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>
-                  Elimina
-                </button>
+                <button onClick={function() { eliminaStaff(s.id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>Elimina</button>
               </div>
             )
           })}
 
           <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginTop: '20px' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Crea nuovo staff</h3>
-            <input placeholder="Nome (es. Staff Blue Velvet)" value={staffNome} onChange={function(e) { setStaffNome(e.target.value) }} style={inputStyle} />
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Crea proprietario</h3>
+            <input placeholder="Nome" value={staffNome} onChange={function(e) { setStaffNome(e.target.value) }} style={inputStyle} />
             <input placeholder="Email" value={staffEmail} onChange={function(e) { setStaffEmail(e.target.value) }} style={inputStyle} />
             <input placeholder="Password" value={staffPassword} onChange={function(e) { setStaffPassword(e.target.value) }} style={inputStyle} />
             <select value={staffLocaleId} onChange={function(e) { setStaffLocaleId(e.target.value) }} style={inputStyle}>
@@ -309,9 +349,7 @@ function Admin() {
                 return <option key={l.id} value={l.id}>{l.nome}</option>
               })}
             </select>
-            <button onClick={creaStaff} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>
-              + Crea staff
-            </button>
+            <button onClick={creaStaff} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Crea proprietario</button>
           </div>
         </div>
       )}
