@@ -122,7 +122,7 @@ function App() {
     setPannelloAperto(true)
     setEventoAperto(null)
     stopAudio()
-    supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id })
+    supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id }).then(function(res){if (res.error) console.log('Analytics errore:', res.error.message)})
   }
 
   function chiudiPannello() {
@@ -199,7 +199,7 @@ function App() {
   var localiVisibili = getLocaliVisibili()
 
   return (
-    <div style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
+    <div style={{ height: '100%', width: '100%', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
       {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
