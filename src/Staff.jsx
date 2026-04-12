@@ -38,16 +38,17 @@ function Staff() {
   var caricando = loadState[0]
   var setCaricando = loadState[1]
 
-  var s1 = useState(''); var nomeEvento = s1[0]; var setNomeEvento = s1[1]
-  var s2 = useState('Lunedi'); var giornoEvento = s2[0]; var setGiornoEvento = s2[1]
-  var s3 = useState(''); var orarioEvento = s3[0]; var setOrarioEvento = s3[1]
-  var s4 = useState(''); var prezzoEvento = s4[0]; var setPrezzoEvento = s4[1]
+  var n1 = useState(''); var nomeEvento = n1[0]; var setNomeEvento = n1[1]
+  var n2 = useState('Lunedi'); var giornoEvento = n2[0]; var setGiornoEvento = n2[1]
+  var n3 = useState(''); var orarioEvento = n3[0]; var setOrarioEvento = n3[1]
+  var n4 = useState(''); var prezzoEvento = n4[0]; var setPrezzoEvento = n4[1]
+  var n5 = useState(''); var dataEvento = n5[0]; var setDataEvento = n5[1]
 
-  var s5 = useState(''); var orgEmail = s5[0]; var setOrgEmail = s5[1]
-  var s6 = useState(''); var orgPassword = s6[0]; var setOrgPassword = s6[1]
-  var s7 = useState(''); var orgNome = s7[0]; var setOrgNome = s7[1]
+  var n6 = useState(''); var orgEmail = n6[0]; var setOrgEmail = n6[1]
+  var n7 = useState(''); var orgPassword = n7[0]; var setOrgPassword = n7[1]
+  var n8 = useState(''); var orgNome = n8[0]; var setOrgNome = n8[1]
 
-  var s8 = useState(''); var fraseEvento = s8[0]; var setFraseEvento = s8[1]
+  var n9 = useState(''); var fraseEvento = n9[0]; var setFraseEvento = n9[1]
 
   var editState = useState(null)
   var eventoEdit = editState[0]
@@ -135,13 +136,14 @@ function Staff() {
       giorno: giornoEvento,
       orario: orarioEvento,
       prezzo: prezzoEvento,
+      data_evento: dataEvento || null,
       immagine_url: null,
       audio_url: null,
       frase: null,
       organizzatore_id: null
     }).then(function(res) {
       if (res.error) { setErrore('Errore: ' + res.error.message); return }
-      setNomeEvento(''); setOrarioEvento(''); setPrezzoEvento('')
+      setNomeEvento(''); setOrarioEvento(''); setPrezzoEvento(''); setDataEvento('')
       caricaEventi(staffInfo.locale_id)
     })
   }
@@ -214,7 +216,7 @@ function Staff() {
     var file = fileInput && fileInput.files[0]
     if (!file) { alert('Seleziona un file'); return }
     var timestamp = Date.now()
-    var nomeFile = staffInfo.locale_id + 'logo' + timestamp + '_' + file.name
+    var nomeFile = staffInfo.locale_id + '_logo_' + timestamp + '_' + file.name
     supabase.storage.from('locandine').upload(nomeFile, file).then(function(res) {
       if (res.error) { alert('Errore upload: ' + res.error.message); return }
       var urlRes = supabase.storage.from('locandine').getPublicUrl(nomeFile)
@@ -234,7 +236,7 @@ function Staff() {
 
   function uploadFile(file, bucket, eventoId) {
     var timestamp = Date.now()
-    var nomeFile = eventoId + '' + timestamp + '' + file.name
+    var nomeFile = eventoId + '_' + timestamp + '_' + file.name
     return supabase.storage.from(bucket).upload(nomeFile, file).then(function(res) {
       if (res.error) {
         alert('Errore upload: ' + res.error.message)
@@ -283,9 +285,14 @@ function Staff() {
     return 'Sconosciuto'
   }
 
+  function formatData(d) {
+    if (!d) return ''
+    var parti = d.split('-')
+    return parti[2] + '/' + parti[1] + '/' + parti[0]
+  }
+
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
 
-  // LOGIN
   if (!user) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -298,7 +305,6 @@ function Staff() {
     )
   }
 
-  // CARICAMENTO
   if (!staffInfo || !locale) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -309,7 +315,6 @@ function Staff() {
     )
   }
 
-  // VISTA ORGANIZZATORE
   if (staffInfo.ruolo === 'organizzatore') {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
@@ -333,6 +338,7 @@ function Staff() {
               <div style={{ marginBottom: '8px' }}>
                 <strong>{ev.nome}</strong>
                 <div style={{ fontSize: '13px', color: '#aaa' }}>{ev.giorno} - {ev.orario} - {ev.prezzo}</div>
+                {ev.data_evento && <div style={{ fontSize: '12px', color: '#888' }}>{formatData(ev.data_evento)}</div>}
               </div>
 
               {eventoEdit === ev.id ? (
@@ -347,9 +353,7 @@ function Staff() {
                     <button onClick={function() { salvaModifica(ev.id) }} disabled={caricando} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: caricando ? '#666' : '#ff0000', color: '#fff', flex: 1 }}>
                       {caricando ? 'Caricamento...' : 'Salva'}
                     </button>
-                    <button onClick={function() { setEventoEdit(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', flex: 1 }}>
-                      Annulla
-                    </button>
+                    <button onClick={function() { setEventoEdit(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', flex: 1 }}>Annulla</button>
                   </div>
                 </div>
               ) : (
@@ -357,9 +361,7 @@ function Staff() {
                   {ev.immagine_url && <div style={{ fontSize: '12px', color: '#4a4' }}>Locandina inserita</div>}
                   {ev.frase && <div style={{ fontSize: '12px', color: '#4a4' }}>Frase: {ev.frase}</div>}
                   {ev.audio_url && <div style={{ fontSize: '12px', color: '#4a4' }}>Audio inserito</div>}
-                  <button onClick={function() { iniziaModifica(ev) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#fff', marginTop: '8px' }}>
-                    Modifica contenuti
-                  </button>
+                  <button onClick={function() { iniziaModifica(ev) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#fff', marginTop: '8px' }}>Modifica contenuti</button>
                 </div>
               )}
             </div>
@@ -369,7 +371,6 @@ function Staff() {
     )
   }
 
-  // VISTA PROPRIETARIO
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif', color: '#fff', background: '#111', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -394,9 +395,7 @@ function Staff() {
         </div>
         <label style={{ fontSize: '13px', color: '#aaa' }}>Cambia logo del locale</label>
         <input type="file" accept="image/*" id="logoInput" style={{ width: '100%', padding: '10px', marginBottom: '4px', marginTop: '4px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }} />
-        <button onClick={function() { caricaLogo() }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>
-          Carica logo
-        </button>
+        <button onClick={function() { caricaLogo() }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, background: '#ff0000', color: '#fff' }}>Carica logo</button>
       </div>
 
       <h3 style={{ color: '#ff4444', fontSize: '16px', letterSpacing: '1px', marginBottom: '12px' }}>CALENDARIO EVENTI</h3>
@@ -408,6 +407,7 @@ function Staff() {
               <div>
                 <strong>{ev.nome}</strong>
                 <div style={{ fontSize: '13px', color: '#aaa' }}>{ev.giorno} - {ev.orario} - {ev.prezzo}</div>
+                {ev.data_evento && <div style={{ fontSize: '12px', color: '#888' }}>{formatData(ev.data_evento)}</div>}
                 <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>Organizzatore: {getNomeOrg(ev.organizzatore_id)}</div>
               </div>
               <button onClick={function() { eliminaEvento(ev.id) }} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: '16px' }}>X</button>
@@ -438,9 +438,9 @@ function Staff() {
         </select>
         <input placeholder="Orario (es. 23:00 - 04:00)" value={orarioEvento} onChange={function(e) { setOrarioEvento(e.target.value) }} style={inputStyle} />
         <input placeholder="Prezzo (es. 15 euro)" value={prezzoEvento} onChange={function(e) { setPrezzoEvento(e.target.value) }} style={inputStyle} />
-        <button onClick={aggiungiEvento} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>
-          + Aggiungi evento
-        </button>
+        <label style={{ fontSize: '13px', color: '#aaa', marginBottom: '4px', display: 'block' }}>Data evento</label>
+        <input type="date" value={dataEvento} onChange={function(e) { setDataEvento(e.target.value) }} style={inputStyle} />
+        <button onClick={aggiungiEvento} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Aggiungi evento</button>
       </div>
 
       <h3 style={{ color: '#ff4444', fontSize: '16px', letterSpacing: '1px', marginTop: '30px', marginBottom: '12px' }}>ORGANIZZATORI</h3>
@@ -459,9 +459,7 @@ function Staff() {
         <input placeholder="Nome (es. DJ Marco)" value={orgNome} onChange={function(e) { setOrgNome(e.target.value) }} style={inputStyle} />
         <input placeholder="Email" value={orgEmail} onChange={function(e) { setOrgEmail(e.target.value) }} style={inputStyle} />
         <input placeholder="Password" value={orgPassword} onChange={function(e) { setOrgPassword(e.target.value) }} style={inputStyle} />
-        <button onClick={creaOrganizzatore} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>
-          + Crea organizzatore
-        </button>
+        <button onClick={creaOrganizzatore} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Crea organizzatore</button>
       </div>
     </div>
   )

@@ -68,10 +68,32 @@ function App() {
     }
     return giorniMappa[giorno]
   }
+  function getOggiData() {
+    var now = new Date()
+    var ora = now.getHours()
+    if (ora < 6) {
+      now.setDate(now.getDate() - 1)
+    }
+    var anno = now.getFullYear()
+    var mese = String(now.getMonth() + 1)
+    if (mese.length < 2) mese = '0' + mese
+    var giorno = String(now.getDate())
+    if (giorno.length < 2) giorno = '0' + giorno
+    return anno + '-' + mese + '-' + giorno
+  }
+
+  function eventoValido(evento) {
+    if (!evento.data_evento) return true
+    return evento.data_evento >= getOggiData()
+  }
+
+  function eventoStasera(evento) {
+    if (!evento.data_evento) return evento.giorno === getGiornoOggi()
+    return evento.data_evento === getOggiData()
+  }
 
   function localeApertoOra(locale) {
-    var oggi = getGiornoOggi()
-    return locale.eventi.filter(function(e) { return e.giorno === oggi }).length > 0
+    return locale.eventi.filter(function(e) { return eventoValido(e) && eventoStasera(e) }).length > 0
   }
 
   function getLocaliVisibili() {
@@ -162,10 +184,11 @@ function App() {
 
   function getEventiVisibili() {
     if (!selezionato) return []
+    var validi = selezionato.eventi.filter(function(e) { return eventoValido(e) })
     if (filtro === 'night') {
-      return selezionato.eventi.filter(function(e) { return e.giorno === getGiornoOggi() })
+      return validi.filter(function(e) { return eventoStasera(e) })
     }
-    return selezionato.eventi
+    return validi
   }
 
   var eventiVisibili = getEventiVisibili()
