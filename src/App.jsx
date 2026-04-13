@@ -10,7 +10,13 @@ var firenzeBounds = [
 
 var giorniMappa = ['Domenica', 'Lunedi', 'Martedi', 'Mercoledi', 'Giovedi', 'Venerdi', 'Sabato']
 
+var isApp = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches
+
 function App() {
+  var splashState = useState(isApp)
+  var showSplash = splashState[0]
+  var setShowSplash = splashState[1]
+
   var localiState = useState([])
   var locali = localiState[0]
   var setLocali = localiState[1]
@@ -55,6 +61,27 @@ function App() {
   var offset2 = touch2Offset[0]
   var setOffset2 = touch2Offset[1]
   var dragging2 = useRef(false)
+
+  var pulseState = useState(false)
+  var pulse = pulseState[0]
+  var setPulse = pulseState[1]
+
+  // Splash screen timer
+  useEffect(function() {
+    if (isApp) {
+      setTimeout(function() { setShowSplash(false) }, 2200)
+    }
+  }, [])
+
+  // Pulse animation for app dots
+  useEffect(function() {
+    if (isApp) {
+      var interval = setInterval(function() {
+        setPulse(function(p) { return !p })
+      }, 1500)
+      return function() { clearInterval(interval) }
+    }
+  }, [])
 
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
@@ -145,6 +172,17 @@ function App() {
     return 1.5
   }
 
+  function getDotRadius(locale) {
+    if (!isApp) return 7
+    if (selezionato && selezionato.id === locale.id) return 10
+    return pulse ? 9 : 7
+  }
+
+  function getDotOpacity(locale) {
+    if (!isApp) return 0.85
+    return pulse ? 1 : 0.75
+  }
+
   function selezionaLocale(locale) {
     setSelezionato(locale)
     setPannelloAperto(true)
@@ -170,7 +208,6 @@ function App() {
     stopAudio()
     setEventoAperto(evento)
     setOffset2(0)
-    setMenuAperto(false)
     supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato ? selezionato.id : null, evento_id: evento.id }).then(function(res) {
       if (res.error) console.log('Analytics errore:', res.error.message)
     })
@@ -263,35 +300,13 @@ function App() {
     return validi
   }
 
-  function onTouch1Start(e) {
-    touch1Start.current = e.touches[0].clientY
-    dragging1.current = true
-  }
-  function onTouch1Move(e) {
-    if (!dragging1.current) return
-    var diff = e.touches[0].clientY - touch1Start.current
-    if (diff > 0) setOffset1(diff)
-  }
-  function onTouch1End() {
-    dragging1.current = false
-    if (offset1 > 100) chiudiPannello()
-    setOffset1(0)
-  }
+  function onTouch1Start(e) { touch1Start.current = e.touches[0].clientY; dragging1.current = true }
+  function onTouch1Move(e) { if (!dragging1.current) return; var diff = e.touches[0].clientY - touch1Start.current; if (diff > 0) setOffset1(diff) }
+  function onTouch1End() { dragging1.current = false; if (offset1 > 100) chiudiPannello(); setOffset1(0) }
 
-  function onTouch2Start(e) {
-    touch2Start.current = e.touches[0].clientY
-    dragging2.current = true
-  }
-  function onTouch2Move(e) {
-    if (!dragging2.current) return
-    var diff = e.touches[0].clientY - touch2Start.current
-    if (diff > 0) setOffset2(diff)
-  }
-  function onTouch2End() {
-    dragging2.current = false
-    if (offset2 > 120) chiudiEvento()
-    setOffset2(0)
-  }
+  function onTouch2Start(e) { touch2Start.current = e.touches[0].clientY; dragging2.current = true }
+  function onTouch2Move(e) { if (!dragging2.current) return; var diff = e.touches[0].clientY - touch2Start.current; if (diff > 0) setOffset2(diff) }
+  function onTouch2End() { dragging2.current = false; if (offset2 > 120) chiudiEvento(); setOffset2(0) }
 
   var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
@@ -301,18 +316,59 @@ function App() {
   var localiVisibili = getLocaliVisibili()
   var localiMenu = getLocaliMenu()
 
+  // SPLASH SCREEN (solo app)
+  if (showSplash) {
+    return (
+      <div style={{
+        height: '100%', width: '100%', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: '#0a0a0a', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
+      }}>
+        <img src="/icon.png" alt="FLORNIGHT" style={{
+          width: '120px', height: '120px', borderRadius: '24px',
+          animation: 'splashFade 2s ease-in-out',
+          marginBottom: '24px'
+        }} />
+        <span style={{
+          color: '#fff', fontSize: '22px', letterSpacing: '6px', fontWeight: 300,
+          animation: 'splashFade 2s ease-in-out'
+        }}>
+          FLORNIGHT
+        </span>
+        <span style={{
+          color: 'rgba(255,255,255,0.3)', fontSize: '11px', letterSpacing: '3px',
+          marginTop: '8px', animation: 'splashFade 2s ease-in-out'
+        }}>
+          LA NOTTE DI FIRENZE
+        </span>
+        <style>{'@keyframes splashFade { 0% { opacity: 0; transform: scale(0.9); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 1; transform: scale(1); } }'}</style>
+      </div>
+    )
+  }
+
+  var headerPadding = isApp ? '14px 20px' : '10px 20px'
+  var headerFontSize = isApp ? '20px' : '18px'
+  var transSpeed = isApp ? '0.4s' : '0.35s'
+
   return (
     <div style={{ height: '100%', width: '100%', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
+
+      {/* CSS per animazioni app */}
+      {isApp && (
+        <style>{'@keyframes glow { 0% { box-shadow: 0 0 4px rgba(196,62,81,0.3); } 50% { box-shadow: 0 0 12px rgba(196,62,81,0.6); } 100% { box-shadow: 0 0 4px rgba(196,62,81,0.3); } }'}</style>
+      )}
 
       {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000, background: 'rgba(12,12,12,0.9)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-        padding: '10px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        padding: headerPadding,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        paddingTop: isApp ? '50px' : '10px'
       }}>
-        <span style={{ color: '#fff', fontSize: '18px', letterSpacing: '3px', fontWeight: 400 }}>
+        <span style={{ color: '#fff', fontSize: headerFontSize, letterSpacing: '3px', fontWeight: 400 }}>
           FLORNIGHT
         </span>
         <button
@@ -334,7 +390,7 @@ function App() {
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
-        style={{ height: '100%', width: '100%', background: '#121212', filter: 'brightness(1.3) contrast(1.1)' }}
+        style={{ height: '100%', width: '100%', background: '#121212', filter: isApp ? 'brightness(1.4) contrast(1.15)' : 'brightness(1.3) contrast(1.1)' }}
         maxBounds={firenzeBounds}
         maxBoundsViscosity={1.0}
         minZoom={13}
@@ -350,11 +406,11 @@ function App() {
             <CircleMarker
               key={locale.id}
               center={[locale.lat, locale.lng]}
-              radius={7}
+              radius={getDotRadius(locale)}
               pathOptions={{
                 color: getDotColor(locale),
                 fillColor: getDotFill(locale),
-                fillOpacity: 0.85,
+                fillOpacity: getDotOpacity(locale),
                 weight: getDotWeight(locale)
               }}
               eventHandlers={{
@@ -379,14 +435,14 @@ function App() {
         </div>
       )}
 
-      {/* Bottone menu hamburger */}
+      {/* Bottone menu */}
       {!menuAperto && !eventoAperto && (
         <div
           onClick={function() { setMenuAperto(true); setMenuLocaleEspanso(null) }}
           style={{
             position: 'absolute', bottom: '24px', right: '20px',
-            zIndex: 999, width: '44px', height: '44px',
-            background: 'rgba(255,255,255,0.1)',
+            zIndex: 999, width: isApp ? '48px' : '44px', height: isApp ? '48px' : '44px',
+            background: isApp ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.1)',
             backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: '12px',
@@ -404,9 +460,9 @@ function App() {
       <div style={{
         position: 'absolute',
         top: 0, bottom: 0, right: 0,
-        width: '85%',
+        width: isApp ? '88%' : '85%',
         zIndex: 1200,
-        background: '#141414',
+        background: isApp ? '#0f0f0f' : '#141414',
         transform: menuAperto ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflowY: 'auto',
@@ -414,7 +470,7 @@ function App() {
         WebkitOverflowScrolling: 'touch',
         boxShadow: menuAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
       }}>
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: '20px', paddingTop: isApp ? '60px' : '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {filtro === 'night' ? 'STASERA' : 'TUTTI I LOCALI'}
@@ -502,7 +558,7 @@ function App() {
         />
       )}
 
-      {/* Tendina 1 - Locale */}
+      {/* Tendina 1 */}
       <div
         onTouchStart={onTouch1Start}
         onTouchMove={onTouch1Move}
@@ -515,7 +571,7 @@ function App() {
           borderRadius: '16px 16px 0 0',
           maxHeight: '55vh',
           transform: pannelloAperto ? 'translateY(' + offset1 + 'px)' : 'translateY(100%)',
-          transition: dragging1.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: dragging1.current ? 'none' : 'transform ' + transSpeed + ' cubic-bezier(0.4, 0, 0.2, 1)',
           overflowY: dragging1.current ? 'hidden' : 'auto',
           color: '#fff',
           WebkitOverflowScrolling: 'touch'
@@ -600,7 +656,7 @@ function App() {
           zIndex: 1300,
           background: '#121212',
           transform: eventoAperto ? 'translateY(' + offset2 + 'px)' : 'translateY(100%)',
-          transition: dragging2.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: dragging2.current ? 'none' : 'transform ' + transSpeed + ' cubic-bezier(0.4, 0, 0.2, 1)',
           overflowY: dragging2.current ? 'hidden' : 'auto',
           color: '#fff',
           WebkitOverflowScrolling: 'touch'
@@ -610,7 +666,8 @@ function App() {
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 20px', flexShrink: 0
+              padding: '14px 20px', flexShrink: 0,
+              paddingTop: isApp ? '50px' : '14px'
             }}>
               <div
                 onClick={chiudiEvento}
