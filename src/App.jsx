@@ -31,19 +31,25 @@ function App() {
   var filtro = filtroState[0]
   var setFiltro = filtroState[1]
 
+  var menuState = useState(false)
+  var menuAperto = menuState[0]
+  var setMenuAperto = menuState[1]
+
+  var menuLocaleState = useState(null)
+  var menuLocaleEspanso = menuLocaleState[0]
+  var setMenuLocaleEspanso = menuLocaleState[1]
+
   var audioRefState = useRef(null)
   var playState = useState(false)
   var playing = playState[0]
   var setPlaying = playState[1]
 
-  // Touch tracking per tendina 1
   var touch1Start = useRef(0)
   var touch1Offset = useState(0)
   var offset1 = touch1Offset[0]
   var setOffset1 = touch1Offset[1]
   var dragging1 = useRef(false)
 
-  // Touch tracking per tendina 2
   var touch2Start = useRef(0)
   var touch2Offset = useState(0)
   var offset2 = touch2Offset[0]
@@ -86,9 +92,7 @@ function App() {
   function getOggiData() {
     var now = new Date()
     var ora = now.getHours()
-    if (ora < 6) {
-      now.setDate(now.getDate() - 1)
-    }
+    if (ora < 6) now.setDate(now.getDate() - 1)
     var anno = now.getFullYear()
     var mese = String(now.getMonth() + 1)
     if (mese.length < 2) mese = '0' + mese
@@ -116,6 +120,15 @@ function App() {
     return locali.filter(function(l) { return localeApertoOra(l) })
   }
 
+  function getLocaliMenu() {
+    var lista = filtro === 'night' ? locali.filter(function(l) { return localeApertoOra(l) }) : locali
+    return lista.slice().sort(function(a, b) {
+      if (a.nome < b.nome) return -1
+      if (a.nome > b.nome) return 1
+      return 0
+    })
+  }
+
   function getDotColor(locale) {
     if (selezionato && selezionato.id === locale.id) return '#ffffff'
     if (filtro === 'night') return '#D4A843'
@@ -137,6 +150,8 @@ function App() {
     setPannelloAperto(true)
     setEventoAperto(null)
     setOffset1(0)
+    setMenuAperto(false)
+    setMenuLocaleEspanso(null)
     stopAudio()
     supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id }).then(function(res) {
       if (res.error) console.log('Analytics errore:', res.error.message)
@@ -155,9 +170,45 @@ function App() {
     stopAudio()
     setEventoAperto(evento)
     setOffset2(0)
-    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato.id, evento_id: evento.id }).then(function(res) {
+    setMenuAperto(false)
+    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato ? selezionato.id : null, evento_id: evento.id }).then(function(res) {
       if (res.error) console.log('Analytics errore:', res.error.message)
     })
+  }
+
+  function apriEventoDaMenu(locale, evento) {
+    setSelezionato(locale)
+    setPannelloAperto(false)
+    setMenuAperto(false)
+    setMenuLocaleEspanso(null)
+    stopAudio()
+    setEventoAperto(evento)
+    setOffset2(0)
+    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: locale.id, evento_id: evento.id }).then(function(res) {
+      if (res.error) console.log('Analytics errore:', res.error.message)
+    })
+  }
+
+  function menuClickLocale(locale) {
+    if (filtro === 'night') {
+      var eventiStasera = locale.eventi.filter(function(e) { return eventoValido(e) && eventoStasera(e) })
+      if (eventiStasera.length === 1) {
+        setSelezionato(locale)
+        apriEventoDaMenu(locale, eventiStasera[0])
+      } else if (eventiStasera.length > 1) {
+        setMenuLocaleEspanso(menuLocaleEspanso === locale.id ? null : locale.id)
+      }
+    } else {
+      setMenuLocaleEspanso(menuLocaleEspanso === locale.id ? null : locale.id)
+    }
+  }
+
+  function getEventiMenuLocale(locale) {
+    var validi = locale.eventi.filter(function(e) { return eventoValido(e) })
+    if (filtro === 'night') {
+      return validi.filter(function(e) { return eventoStasera(e) })
+    }
+    return validi
   }
 
   function chiudiEvento() {
@@ -194,14 +245,12 @@ function App() {
   }
 
   function toggleFiltro() {
-    if (filtro === 'week') {
-      setFiltro('night')
-    } else {
-      setFiltro('week')
-    }
+    var newFiltro = filtro === 'week' ? 'night' : 'week'
+    setFiltro(newFiltro)
     setPannelloAperto(false)
     setSelezionato(null)
     setEventoAperto(null)
+    setMenuLocaleEspanso(null)
     stopAudio()
   }
 
@@ -214,47 +263,33 @@ function App() {
     return validi
   }
 
-  // Touch handlers tendina 1
   function onTouch1Start(e) {
     touch1Start.current = e.touches[0].clientY
     dragging1.current = true
   }
-
   function onTouch1Move(e) {
     if (!dragging1.current) return
     var diff = e.touches[0].clientY - touch1Start.current
-    if (diff > 0) {
-      setOffset1(diff)
-    }
+    if (diff > 0) setOffset1(diff)
   }
-
   function onTouch1End() {
     dragging1.current = false
-    if (offset1 > 100) {
-      chiudiPannello()
-    }
+    if (offset1 > 100) chiudiPannello()
     setOffset1(0)
   }
 
-  // Touch handlers tendina 2
   function onTouch2Start(e) {
     touch2Start.current = e.touches[0].clientY
     dragging2.current = true
   }
-
   function onTouch2Move(e) {
     if (!dragging2.current) return
     var diff = e.touches[0].clientY - touch2Start.current
-    if (diff > 0) {
-      setOffset2(diff)
-    }
+    if (diff > 0) setOffset2(diff)
   }
-
   function onTouch2End() {
     dragging2.current = false
-    if (offset2 > 120) {
-      chiudiEvento()
-    }
+    if (offset2 > 120) chiudiEvento()
     setOffset2(0)
   }
 
@@ -264,35 +299,12 @@ function App() {
   var hasFrase = eventoAperto && eventoAperto.frase && eventoAperto.frase.length > 0
   var hasAudio = eventoAperto && eventoAperto.audio_url && eventoAperto.audio_url.length > 0
   var localiVisibili = getLocaliVisibili()
-
-  var tendina1Style = {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    zIndex: 1000,
-    background: '#181818',
-    borderRadius: '16px 16px 0 0',
-    maxHeight: '55vh',
-    transform: pannelloAperto ? 'translateY(' + offset1 + 'px)' : 'translateY(100%)',
-    transition: dragging1.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-    overflowY: dragging1.current ? 'hidden' : 'auto',
-    color: '#fff',
-    WebkitOverflowScrolling: 'touch'
-  }
-
-  var tendina2Style = {
-    position: 'absolute',
-    top: 0, bottom: 0, left: 0, right: 0,
-    zIndex: 1100,
-    background: '#121212',
-    transform: eventoAperto ? 'translateY(' + offset2 + 'px)' : 'translateY(100%)',
-    transition: dragging2.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-    overflowY: dragging2.current ? 'hidden' : 'auto',
-    color: '#fff',
-    WebkitOverflowScrolling: 'touch'
-  }
+  var localiMenu = getLocaliMenu()
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
+
+      {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000, background: 'rgba(12,12,12,0.9)',
@@ -318,6 +330,7 @@ function App() {
         </button>
       </div>
 
+      {/* Mappa */}
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
@@ -352,7 +365,8 @@ function App() {
         })}
       </MapContainer>
 
-      {filtro === 'night' && !pannelloAperto && (
+      {/* Indicatore night */}
+      {filtro === 'night' && !pannelloAperto && !menuAperto && (
         <div style={{
           position: 'absolute', bottom: '24px',
           left: '50%', transform: 'translateX(-50%)',
@@ -365,11 +379,147 @@ function App() {
         </div>
       )}
 
+      {/* Bottone menu hamburger */}
+      {!menuAperto && !eventoAperto && (
+        <div
+          onClick={function() { setMenuAperto(true); setMenuLocaleEspanso(null) }}
+          style={{
+            position: 'absolute', bottom: '24px', right: '20px',
+            zIndex: 999, width: '44px', height: '44px',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '12px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: '4px', cursor: 'pointer'
+          }}
+        >
+          <div style={{ width: '18px', height: '1.5px', background: 'rgba(255,255,255,0.7)', borderRadius: '1px' }}></div>
+          <div style={{ width: '18px', height: '1.5px', background: 'rgba(255,255,255,0.7)', borderRadius: '1px' }}></div>
+          <div style={{ width: '18px', height: '1.5px', background: 'rgba(255,255,255,0.7)', borderRadius: '1px' }}></div>
+        </div>
+      )}
+
+      {/* Menu laterale */}
+      <div style={{
+        position: 'absolute',
+        top: 0, bottom: 0, right: 0,
+        width: '85%',
+        zIndex: 1200,
+        background: '#141414',
+        transform: menuAperto ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflowY: 'auto',
+        color: '#fff',
+        WebkitOverflowScrolling: 'touch',
+        boxShadow: menuAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
+      }}>
+        <div style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+              {filtro === 'night' ? 'STASERA' : 'TUTTI I LOCALI'}
+            </span>
+            <div
+              onClick={function() { setMenuAperto(false) }}
+              style={{ fontSize: '20px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              X
+            </div>
+          </div>
+
+          {localiMenu.length === 0 && (
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>Nessun locale aperto stasera</p>
+          )}
+
+          {localiMenu.map(function(locale) {
+            var espanso = menuLocaleEspanso === locale.id
+            var eventiLocale = getEventiMenuLocale(locale)
+            var hasLoc = locale.logo_url && locale.logo_url.length > 0
+
+            return (
+              <div key={locale.id} style={{ marginBottom: '2px' }}>
+                <div
+                  onClick={function() { menuClickLocale(locale) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '12px 8px', cursor: 'pointer',
+                    background: espanso ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    borderRadius: '10px',
+                    transition: 'background 0.2s ease'
+                  }}
+                >
+                  {hasLoc ? (
+                    <img src={locale.logo_url} alt={locale.nome} style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#282828', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>
+                      {locale.nome.charAt(0)}
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 500 }}>{locale.nome}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>{locale.indirizzo}</div>
+                  </div>
+                  {filtro === 'week' && (
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>{espanso ? '-' : '+'}</span>
+                  )}
+                </div>
+
+                {espanso && eventiLocale.length > 0 && (
+                  <div style={{ paddingLeft: '56px', paddingBottom: '8px' }}>
+                    {eventiLocale.map(function(ev) {
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={function() { apriEventoDaMenu(locale, ev) }}
+                          style={{
+                            padding: '8px 0', cursor: 'pointer',
+                            borderBottom: '1px solid rgba(255,255,255,0.04)'
+                          }}
+                        >
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#fff' }}>{ev.nome}</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>
+                            {ev.giorno} - {ev.orario} - {ev.prezzo}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Overlay menu */}
+      {menuAperto && (
+        <div
+          onClick={function() { setMenuAperto(false) }}
+          style={{
+            position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+            zIndex: 1150, background: 'rgba(0,0,0,0.5)'
+          }}
+        />
+      )}
+
+      {/* Tendina 1 - Locale */}
       <div
         onTouchStart={onTouch1Start}
         onTouchMove={onTouch1Move}
         onTouchEnd={onTouch1End}
-        style={tendina1Style}
+        style={{
+          position: 'absolute',
+          bottom: 0, left: 0, right: 0,
+          zIndex: 1000,
+          background: '#181818',
+          borderRadius: '16px 16px 0 0',
+          maxHeight: '55vh',
+          transform: pannelloAperto ? 'translateY(' + offset1 + 'px)' : 'translateY(100%)',
+          transition: dragging1.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflowY: dragging1.current ? 'hidden' : 'auto',
+          color: '#fff',
+          WebkitOverflowScrolling: 'touch'
+        }}
       >
         {selezionato && (
           <div style={{ padding: '14px 24px 24px 24px' }}>
@@ -439,11 +589,22 @@ function App() {
         )}
       </div>
 
+      {/* Tendina 2 - Evento */}
       <div
         onTouchStart={onTouch2Start}
         onTouchMove={onTouch2Move}
         onTouchEnd={onTouch2End}
-        style={tendina2Style}
+        style={{
+          position: 'absolute',
+          top: 0, bottom: 0, left: 0, right: 0,
+          zIndex: 1300,
+          background: '#121212',
+          transform: eventoAperto ? 'translateY(' + offset2 + 'px)' : 'translateY(100%)',
+          transition: dragging2.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflowY: dragging2.current ? 'hidden' : 'auto',
+          color: '#fff',
+          WebkitOverflowScrolling: 'touch'
+        }}
       >
         {eventoAperto && (
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
