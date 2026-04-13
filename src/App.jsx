@@ -36,6 +36,20 @@ function App() {
   var playing = playState[0]
   var setPlaying = playState[1]
 
+  // Touch tracking per tendina 1
+  var touch1Start = useRef(0)
+  var touch1Offset = useState(0)
+  var offset1 = touch1Offset[0]
+  var setOffset1 = touch1Offset[1]
+  var dragging1 = useRef(false)
+
+  // Touch tracking per tendina 2
+  var touch2Start = useRef(0)
+  var touch2Offset = useState(0)
+  var offset2 = touch2Offset[0]
+  var setOffset2 = touch2Offset[1]
+  var dragging2 = useRef(false)
+
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
       supabase.from('eventi').select('*').then(function(res2) {
@@ -68,6 +82,7 @@ function App() {
     }
     return giorniMappa[giorno]
   }
+
   function getOggiData() {
     var now = new Date()
     var ora = now.getHours()
@@ -121,26 +136,34 @@ function App() {
     setSelezionato(locale)
     setPannelloAperto(true)
     setEventoAperto(null)
+    setOffset1(0)
     stopAudio()
-    supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id }).then(function(res){if (res.error) console.log('Analytics errore:', res.error.message)})
+    supabase.from('analytics').insert({ tipo: 'view_locale', locale_id: locale.id }).then(function(res) {
+      if (res.error) console.log('Analytics errore:', res.error.message)
+    })
   }
 
   function chiudiPannello() {
     setPannelloAperto(false)
     setSelezionato(null)
     setEventoAperto(null)
+    setOffset1(0)
     stopAudio()
   }
 
   function apriEvento(evento) {
     stopAudio()
     setEventoAperto(evento)
-    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato.id, evento_id: evento.id })
+    setOffset2(0)
+    supabase.from('analytics').insert({ tipo: 'view_evento', locale_id: selezionato.id, evento_id: evento.id }).then(function(res) {
+      if (res.error) console.log('Analytics errore:', res.error.message)
+    })
   }
 
   function chiudiEvento() {
     stopAudio()
     setEventoAperto(null)
+    setOffset2(0)
   }
 
   function toggleAudio() {
@@ -191,6 +214,50 @@ function App() {
     return validi
   }
 
+  // Touch handlers tendina 1
+  function onTouch1Start(e) {
+    touch1Start.current = e.touches[0].clientY
+    dragging1.current = true
+  }
+
+  function onTouch1Move(e) {
+    if (!dragging1.current) return
+    var diff = e.touches[0].clientY - touch1Start.current
+    if (diff > 0) {
+      setOffset1(diff)
+    }
+  }
+
+  function onTouch1End() {
+    dragging1.current = false
+    if (offset1 > 100) {
+      chiudiPannello()
+    }
+    setOffset1(0)
+  }
+
+  // Touch handlers tendina 2
+  function onTouch2Start(e) {
+    touch2Start.current = e.touches[0].clientY
+    dragging2.current = true
+  }
+
+  function onTouch2Move(e) {
+    if (!dragging2.current) return
+    var diff = e.touches[0].clientY - touch2Start.current
+    if (diff > 0) {
+      setOffset2(diff)
+    }
+  }
+
+  function onTouch2End() {
+    dragging2.current = false
+    if (offset2 > 120) {
+      chiudiEvento()
+    }
+    setOffset2(0)
+  }
+
   var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
   var hasLogo = selezionato && selezionato.logo_url && selezionato.logo_url.length > 0
@@ -198,9 +265,34 @@ function App() {
   var hasAudio = eventoAperto && eventoAperto.audio_url && eventoAperto.audio_url.length > 0
   var localiVisibili = getLocaliVisibili()
 
+  var tendina1Style = {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    zIndex: 1000,
+    background: '#181818',
+    borderRadius: '16px 16px 0 0',
+    maxHeight: '55vh',
+    transform: pannelloAperto ? 'translateY(' + offset1 + 'px)' : 'translateY(100%)',
+    transition: dragging1.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+    overflowY: dragging1.current ? 'hidden' : 'auto',
+    color: '#fff',
+    WebkitOverflowScrolling: 'touch'
+  }
+
+  var tendina2Style = {
+    position: 'absolute',
+    top: 0, bottom: 0, left: 0, right: 0,
+    zIndex: 1100,
+    background: '#121212',
+    transform: eventoAperto ? 'translateY(' + offset2 + 'px)' : 'translateY(100%)',
+    transition: dragging2.current ? 'none' : 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+    overflowY: dragging2.current ? 'hidden' : 'auto',
+    color: '#fff',
+    WebkitOverflowScrolling: 'touch'
+  }
+
   return (
     <div style={{ height: '100%', width: '100%', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', background: '#121212', fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif' }}>
-      {/* Header */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         zIndex: 1000, background: 'rgba(12,12,12,0.9)',
@@ -226,11 +318,10 @@ function App() {
         </button>
       </div>
 
-      {/* Mappa */}
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
-        style={{ height: '100%', width: '100%', background: '#121212' }}
+        style={{ height: '100%', width: '100%', background: '#121212', filter: 'brightness(1.3) contrast(1.1)' }}
         maxBounds={firenzeBounds}
         maxBoundsViscosity={1.0}
         minZoom={13}
@@ -261,7 +352,6 @@ function App() {
         })}
       </MapContainer>
 
-      {/* Indicatore night */}
       {filtro === 'night' && !pannelloAperto && (
         <div style={{
           position: 'absolute', bottom: '24px',
@@ -275,20 +365,12 @@ function App() {
         </div>
       )}
 
-      {/* Prima tendina - Locale */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
-        zIndex: 1000,
-        background: '#181818',
-        borderRadius: '16px 16px 0 0',
-        maxHeight: '55vh',
-        transform: pannelloAperto ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflowY: 'auto',
-        color: '#fff',
-        WebkitOverflowScrolling: 'touch'
-      }}>
+      <div
+        onTouchStart={onTouch1Start}
+        onTouchMove={onTouch1Move}
+        onTouchEnd={onTouch1End}
+        style={tendina1Style}
+      >
         {selezionato && (
           <div style={{ padding: '14px 24px 24px 24px' }}>
             <div
@@ -333,7 +415,7 @@ function App() {
                   onClick={function() { apriEvento(evento) }}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '11px 0', cursor: 'pointer',
+                    padding: '10px 0', cursor: 'pointer',
                     borderBottom: getEventBorder(i, eventiVisibili.length)
                   }}
                 >
@@ -357,21 +439,14 @@ function App() {
         )}
       </div>
 
-      {/* Seconda tendina - Evento */}
-      <div style={{
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0, right: 0,
-        zIndex: 1100,
-        background: '#121212',
-        transform: eventoAperto ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflowY: 'auto',
-        color: '#fff',
-        WebkitOverflowScrolling: 'touch'
-      }}>
+      <div
+        onTouchStart={onTouch2Start}
+        onTouchMove={onTouch2Move}
+        onTouchEnd={onTouch2End}
+        style={tendina2Style}
+      >
         {eventoAperto && (
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-            {/* Top bar */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '14px 20px', flexShrink: 0
@@ -392,18 +467,16 @@ function App() {
               <div style={{ width: '32px' }}></div>
             </div>
 
-            {/* Logo */}
             {hasLogo && (
               <div style={{ textAlign: 'center', padding: '0 20px 14px 20px' }}>
                 <img
                   src={selezionato.logo_url}
                   alt={selezionato.nome}
-                  style={{ height: '36px', objectFit: 'contain', opacity: 0.7 }}
+                  style={{ height: '40px', objectFit: 'contain', opacity: 0.9 }}
                 />
               </div>
             )}
 
-            {/* Locandina */}
             <div style={{ padding: '0 36px', flexShrink: 0 }}>
               {hasEventImage ? (
                 <img
@@ -427,7 +500,6 @@ function App() {
               )}
             </div>
 
-            {/* Info */}
             <div style={{ padding: '28px 36px', flex: 1 }}>
               <h2 style={{ margin: '0 0 4px 0', fontSize: '22px', fontWeight: 700, letterSpacing: '0.2px' }}>
                 {eventoAperto.nome}
@@ -456,7 +528,6 @@ function App() {
                 {eventoAperto.prezzo}
               </span>
 
-              {/* Audio */}
               {hasAudio && (
                 <div style={{ marginTop: '32px' }}>
                   <audio
