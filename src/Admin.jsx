@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 
 function Admin() {
@@ -73,9 +73,9 @@ function Admin() {
         verificaAdmin(res.data.session.user.id)
       }
     })
-  }, [])
+  }, [setUser, verificaAdmin])
 
-  function verificaAdmin(userId) {
+  var verificaAdmin = useCallback(function(userId) {
     supabase.from('staff').select('*').eq('user_id', userId).eq('ruolo', 'admin').single().then(function(res) {
       if (res.data) {
         setStaffInfo(res.data)
@@ -84,7 +84,7 @@ function Admin() {
         setErrore('Non hai i permessi di admin.')
       }
     })
-  }
+  }, [setStaffInfo, setErrore, caricaDati])
 
   function login() {
     setErrore('')
@@ -109,7 +109,7 @@ function Admin() {
     })
   }
 
-  function caricaDati() {
+  var caricaDati = useCallback(function() {
     supabase.from('locali').select('*').order('id').then(function(res) {
       setLocali(res.data || [])
     })
@@ -119,7 +119,7 @@ function Admin() {
     supabase.from('staff').select('*').order('id').then(function(res) {
       setStaffList(res.data || [])
     })
-  }
+  }, [setLocali, setEventi, setStaffList])
 
   function caricaAnalytics() {
     supabase.from('analytics').select('*').order('timestamp', { ascending: false }).limit(500).then(function(res) {

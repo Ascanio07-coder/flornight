@@ -71,7 +71,7 @@ function App() {
     if (isApp) {
       setTimeout(function() { setShowSplash(false) }, 2200)
     }
-  }, [])
+  }, [setShowSplash])
 
   // Pulse animation for app dots
   useEffect(function() {
@@ -81,7 +81,7 @@ function App() {
       }, 1500)
       return function() { clearInterval(interval) }
     }
-  }, [])
+  }, [setPulse])
 
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
@@ -103,7 +103,7 @@ function App() {
         setLocali(risultato)
       })
     })
-  }, [])
+  }, [setLocali])
 
   function getGiornoOggi() {
     var now = new Date()
@@ -162,7 +162,7 @@ function App() {
     return '#C43E51'
   }
 
-  function getDotFill(locale) {
+  function getDotFill() {
     if (filtro === 'night') return '#D4A843'
     return '#C43E51'
   }
@@ -178,7 +178,7 @@ function App() {
     return pulse ? 9 : 7
   }
 
-  function getDotOpacity(locale) {
+  function getDotOpacity() {
     if (!isApp) return 0.85
     return pulse ? 1 : 0.75
   }
@@ -409,8 +409,8 @@ function App() {
               radius={getDotRadius(locale)}
               pathOptions={{
                 color: getDotColor(locale),
-                fillColor: getDotFill(locale),
-                fillOpacity: getDotOpacity(locale),
+                fillColor: getDotFill(),
+                fillOpacity: getDotOpacity(),
                 weight: getDotWeight(locale)
               }}
               eventHandlers={{

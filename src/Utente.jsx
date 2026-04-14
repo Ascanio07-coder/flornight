@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 
 function Utente() {
@@ -41,13 +41,13 @@ function Utente() {
         caricaProfilo(res.data.session.user.id)
       }
     })
-  }, [])
+  }, [setUser, caricaProfilo])
 
-  function caricaProfilo(userId) {
+  var caricaProfilo = useCallback(function(userId) {
     supabase.from('utenti').select('*').eq('user_id', userId).single().then(function(res) {
       if (res.data) setProfilo(res.data)
     })
-  }
+  }, [setProfilo])
 
   function login() {
     setErrore('')

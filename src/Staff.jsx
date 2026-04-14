@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabase'
 
 function Staff() {
@@ -64,9 +64,9 @@ function Staff() {
         caricaStaff(res.data.session.user.id)
       }
     })
-  }, [])
+  }, [setUser, caricaStaff])
 
-  function caricaStaff(userId) {
+  var caricaStaff = useCallback(function(userId) {
     supabase.from('staff').select('*').eq('user_id', userId).single().then(function(res) {
       if (res.data) {
         setStaffInfo(res.data)
@@ -81,7 +81,7 @@ function Staff() {
         setErrore('Il tuo account non e associato a nessun locale.')
       }
     })
-  }
+  }, [setStaffInfo, setErrore, caricaLocale, caricaEventi, caricaOrganizzatori, caricaEventiOrganizzatore])
 
   function caricaLocale(localeId) {
     supabase.from('locali').select('*').eq('id', localeId).single().then(function(res) {

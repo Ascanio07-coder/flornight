@@ -30,7 +30,7 @@ function Evento() {
         })
       }
     })
-  }, [id])
+  }, [id, setEvento, setLocale])
 
   function toggleAudio() {
     if (!audioRef.current) return
