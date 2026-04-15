@@ -39,7 +39,6 @@ function Staff() {
   var setCaricando = loadState[1]
 
   var n1 = useState(''); var nomeEvento = n1[0]; var setNomeEvento = n1[1]
-  var n2 = useState('Lunedi'); var giornoEvento = n2[0]; var setGiornoEvento = n2[1]
   var n3 = useState(''); var orarioEvento = n3[0]; var setOrarioEvento = n3[1]
   var n4 = useState(''); var prezzoEvento = n4[0]; var setPrezzoEvento = n4[1]
   var n5 = useState(''); var dataEvento = n5[0]; var setDataEvento = n5[1]
@@ -129,14 +128,27 @@ function Staff() {
     })
   }
 
+  function giornoDaData(dateStr) {
+    if (!dateStr) return null
+    var parti = dateStr.split('-')
+    var d = new Date(parseInt(parti[0]), parseInt(parti[1]) - 1, parseInt(parti[2]))
+    var giorni = ['Domenica', 'Lunedi', 'Martedi', 'Mercoledi', 'Giovedi', 'Venerdi', 'Sabato']
+    return giorni[d.getDay()]
+  }
+
   function aggiungiEvento() {
+    if (!dataEvento) {
+      setErrore('Seleziona la data dell\'evento')
+      return
+    }
+    setErrore('')
     supabase.from('eventi').insert({
       locale_id: staffInfo.locale_id,
       nome: nomeEvento,
-      giorno: giornoEvento,
+      giorno: giornoDaData(dataEvento),
       orario: orarioEvento,
       prezzo: prezzoEvento,
-      data_evento: dataEvento || null,
+      data_evento: dataEvento,
       immagine_url: null,
       audio_url: null,
       frase: null,
@@ -420,6 +432,44 @@ function Staff() {
                 })}
               </select>
             </div>
+
+            {eventoEdit === ev.id ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333' }}>
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Locandina (immagine)</label>
+                {ev.immagine_url && <a href={ev.immagine_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#4a4' }}>Vedi locandina attuale</a>}
+                <input type="file" accept="image/*" ref={imgRef} style={inputStyle} />
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Frase breve</label>
+                <input placeholder="La notte che non dimenticherai..." value={fraseEvento} onChange={function(e) { setFraseEvento(e.target.value) }} style={inputStyle} />
+                <label style={{ fontSize: '13px', color: '#aaa' }}>Canzone (audio)</label>
+                {ev.audio_url && <a href={ev.audio_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#4a4' }}>Ascolta audio attuale</a>}
+                <input type="file" accept="audio/*" ref={audioFileRef} style={inputStyle} />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button onClick={function() { salvaModifica(ev.id) }} disabled={caricando} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: caricando ? '#666' : '#ff0000', color: '#fff', flex: 1 }}>
+                    {caricando ? 'Caricamento...' : 'Salva'}
+                  </button>
+                  <button onClick={function() { setEventoEdit(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#333', color: '#fff', flex: 1 }}>Annulla</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #333' }}>
+                {ev.immagine_url ? (
+                  <a href={ev.immagine_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#4a4', display: 'block' }}>Locandina: vedi file</a>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#666' }}>Locandina: non inserita</div>
+                )}
+                {ev.frase ? (
+                  <div style={{ fontSize: '12px', color: '#4a4' }}>Frase: {ev.frase}</div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#666' }}>Frase: non inserita</div>
+                )}
+                {ev.audio_url ? (
+                  <a href={ev.audio_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#4a4', display: 'block' }}>Audio: ascolta file</a>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#666' }}>Audio: non inserito</div>
+                )}
+                <button onClick={function() { iniziaModifica(ev) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#fff', marginTop: '8px' }}>Modifica contenuti</button>
+              </div>
+            )}
           </div>
         )
       })}
@@ -427,19 +477,12 @@ function Staff() {
       <div style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginTop: '10px' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '15px' }}>Aggiungi evento</h3>
         <input placeholder="Nome evento" value={nomeEvento} onChange={function(e) { setNomeEvento(e.target.value) }} style={inputStyle} />
-        <select value={giornoEvento} onChange={function(e) { setGiornoEvento(e.target.value) }} style={inputStyle}>
-          <option value="Lunedi">Lunedi</option>
-          <option value="Martedi">Martedi</option>
-          <option value="Mercoledi">Mercoledi</option>
-          <option value="Giovedi">Giovedi</option>
-          <option value="Venerdi">Venerdi</option>
-          <option value="Sabato">Sabato</option>
-          <option value="Domenica">Domenica</option>
-        </select>
         <input placeholder="Orario (es. 23:00 - 04:00)" value={orarioEvento} onChange={function(e) { setOrarioEvento(e.target.value) }} style={inputStyle} />
         <input placeholder="Prezzo (es. 15 euro)" value={prezzoEvento} onChange={function(e) { setPrezzoEvento(e.target.value) }} style={inputStyle} />
         <label style={{ fontSize: '13px', color: '#aaa', marginBottom: '4px', display: 'block' }}>Data evento</label>
         <input type="date" value={dataEvento} onChange={function(e) { setDataEvento(e.target.value) }} style={inputStyle} />
+        {dataEvento && <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Giorno: {giornoDaData(dataEvento)}</div>}
+        {errore && <p style={{ color: '#ff4444', fontSize: '13px', margin: '4px 0 8px 0' }}>{errore}</p>}
         <button onClick={aggiungiEvento} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Aggiungi evento</button>
       </div>
 

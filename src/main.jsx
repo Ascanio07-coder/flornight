@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App'
 import Admin from './Admin'
 import Staff from './Staff'
+import Utente from './Utente'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   React.createElement(React.StrictMode, null,
@@ -11,7 +12,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       React.createElement(Routes, null,
         React.createElement(Route, { path: '/', element: React.createElement(App) }),
         React.createElement(Route, { path: '/admin', element: React.createElement(Admin) }),
-        React.createElement(Route, { path: '/staff', element: React.createElement(Staff) })
+        React.createElement(Route, { path: '/staff', element: React.createElement(Staff) }),
+        React.createElement(Route, { path: '/utente', element: React.createElement(Utente) })
       )
     )
   )
