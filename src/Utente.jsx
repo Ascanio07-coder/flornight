@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { validateSignupForm } from './lib/validators.js'
 
 function Utente() {
   var emailState = useState('')
@@ -65,12 +66,9 @@ function Utente() {
   function registrati() {
     setErrore('')
     setMessaggio('')
-    if (!email || !pass || !nome) {
-      setErrore('Compila tutti i campi')
-      return
-    }
-    if (pass.length < 6) {
-      setErrore('La password deve avere almeno 6 caratteri')
+    var validationError = validateSignupForm({ email: email, pass: pass, nome: nome })
+    if (validationError) {
+      setErrore(validationError)
       return
     }
     supabase.auth.signUp({ email: email, password: pass }).then(function(res) {

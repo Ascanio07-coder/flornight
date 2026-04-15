@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
+import { getRuoloLabel as libGetRuoloLabel, getNomeLocale as libGetNomeLocale } from './lib/labels.js'
 
 function Admin() {
   var emailState = useState('')
@@ -228,16 +229,11 @@ function Admin() {
   }
 
   function getNomeLocale(localeId) {
-    var found = locali.filter(function(l) { return l.id === localeId })
-    if (found.length > 0) return found[0].nome
-    return 'Sconosciuto'
+    return libGetNomeLocale(locali, localeId)
   }
 
   function getRuoloLabel(ruolo) {
-    if (ruolo === 'admin') return 'Admin'
-    if (ruolo === 'proprietario') return 'Proprietario'
-    if (ruolo === 'organizzatore') return 'Organizzatore'
-    return ruolo
+    return libGetRuoloLabel(ruolo)
   }
 
   var inputStyle = { width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #444', background: '#222', color: '#fff', fontSize: '14px', boxSizing: 'border-box' }
