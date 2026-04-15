@@ -68,32 +68,12 @@ function App() {
   var setOffsetMenu = touchMenuOffset[1]
   var draggingMenu = useRef(false)
 
-  var pulseState = useState(0)
-  var pulse = pulseState[0]
-  var setPulse = pulseState[1]
-
   // Splash screen timer
   useEffect(function() {
     if (isApp) {
       setTimeout(function() { setShowSplash(false) }, 2200)
     }
   }, [setShowSplash])
-
-  // Pulse animation for app dots - fluid sine wave
-  useEffect(function() {
-    if (!isApp) return
-    var start = Date.now()
-    var frameId
-    function tick() {
-      var t = (Date.now() - start) / 1000
-      // periodo 2.4s, valore normalizzato 0..1
-      var val = (Math.sin(t * Math.PI / 1.2) + 1) / 2
-      setPulse(val)
-      frameId = requestAnimationFrame(tick)
-    }
-    frameId = requestAnimationFrame(tick)
-    return function() { cancelAnimationFrame(frameId) }
-  }, [setPulse])
 
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
@@ -185,14 +165,12 @@ function App() {
   }
 
   function getDotRadius(locale) {
-    if (!isApp) return 7
-    if (selezionato && selezionato.id === locale.id) return 10
-    return 7 + pulse * 2.5
+    if (selezionato && selezionato.id === locale.id) return 9
+    return 7
   }
 
   function getDotOpacity() {
-    if (!isApp) return 0.85
-    return 0.7 + pulse * 0.3
+    return 0.9
   }
 
   function selezionaLocale(locale) {
@@ -398,7 +376,7 @@ function App() {
             transition: 'all 0.3s ease', letterSpacing: '0.5px'
           }}
         >
-          {filtro === 'night' ? 'STASERA' : 'SETTIMANA'}
+          STASERA
         </button>
       </div>
 
@@ -420,6 +398,23 @@ function App() {
         {localiVisibili.map(function(locale) {
           return (
             <CircleMarker
+              key={'hit-' + locale.id}
+              center={[locale.lat, locale.lng]}
+              radius={20}
+              pathOptions={{
+                stroke: false,
+                fillColor: '#000',
+                fillOpacity: 0.01
+              }}
+              eventHandlers={{
+                click: function() { selezionaLocale(locale) }
+              }}
+            />
+          )
+        })}
+        {localiVisibili.map(function(locale) {
+          return (
+            <CircleMarker
               key={locale.id}
               center={[locale.lat, locale.lng]}
               radius={getDotRadius(locale)}
@@ -427,10 +422,8 @@ function App() {
                 color: getDotColor(locale),
                 fillColor: getDotFill(),
                 fillOpacity: getDotOpacity(),
-                weight: getDotWeight(locale)
-              }}
-              eventHandlers={{
-                click: function() { selezionaLocale(locale) }
+                weight: getDotWeight(locale),
+                interactive: false
               }}
             />
           )
@@ -488,13 +481,25 @@ function App() {
         color: '#fff',
         boxShadow: menuAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
       }}>
+        {/* Handle verticale (stile delle altre tendine) */}
+        <div
+          onClick={function() { setMenuAperto(false) }}
+          style={{
+            position: 'absolute',
+            left: '8px', top: '50%', transform: 'translateY(-50%)',
+            width: '3px', height: '32px',
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: '2px', cursor: 'pointer',
+            zIndex: 5
+          }}
+        />
         <div style={{
           height: '100%',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
           touchAction: 'pan-y'
         }}>
-        <div style={{ padding: '20px', paddingTop: isApp ? '60px' : '20px', paddingBottom: '100px' }}>
+        <div style={{ paddingTop: isApp ? '60px' : '20px', paddingRight: '20px', paddingBottom: '100px', paddingLeft: '28px' }}>
           <div style={{ marginBottom: '24px' }}>
             <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {filtro === 'night' ? 'STASERA' : 'TUTTI I LOCALI'}
