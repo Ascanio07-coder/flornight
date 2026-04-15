@@ -34,6 +34,10 @@ function Admin() {
   var staffList = staffListState[0]
   var setStaffList = staffListState[1]
 
+  var utentiListState = useState([])
+  var utentiList = utentiListState[0]
+  var setUtentiList = utentiListState[1]
+
   var analyticsState = useState([])
   var analytics = analyticsState[0]
   var setAnalytics = analyticsState[1]
@@ -105,6 +109,7 @@ function Admin() {
       setLocali([])
       setEventi([])
       setStaffList([])
+      setUtentiList([])
       setAnalytics([])
     })
   }
@@ -119,7 +124,10 @@ function Admin() {
     supabase.from('staff').select('*').order('id').then(function(res) {
       setStaffList(res.data || [])
     })
-  }, [setLocali, setEventi, setStaffList])
+    supabase.from('utenti').select('*').order('created_at', { ascending: false }).then(function(res) {
+      setUtentiList(res.data || [])
+    })
+  }, [setLocali, setEventi, setStaffList, setUtentiList])
 
   function caricaAnalytics() {
     supabase.from('analytics').select('*').order('timestamp', { ascending: false }).limit(500).then(function(res) {
@@ -326,6 +334,7 @@ function Admin() {
 
       {tab === 'staff' && (
         <div>
+          <h3 style={{ color: '#ff4444', fontSize: '14px', letterSpacing: '1px', marginBottom: '10px', marginTop: 0 }}>STAFF</h3>
           {staffList.filter(function(s) { return s.ruolo !== 'admin' }).map(function(s) {
             return (
               <div key={s.id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -350,6 +359,19 @@ function Admin() {
             </select>
             <button onClick={creaStaff} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: '#ff0000', color: '#fff', width: '100%' }}>+ Crea proprietario</button>
           </div>
+
+          <h3 style={{ color: '#ff4444', fontSize: '14px', letterSpacing: '1px', marginTop: '30px', marginBottom: '10px' }}>UTENTI REGISTRATI ({utentiList.length})</h3>
+          {utentiList.length === 0 && <p style={{ color: '#aaa', fontSize: '13px' }}>Nessun utente registrato.</p>}
+          {utentiList.map(function(u) {
+            var dataIscr = u.created_at ? new Date(u.created_at).toLocaleDateString('it-IT') : ''
+            return (
+              <div key={u.user_id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
+                <strong>{u.nome || '(senza nome)'}</strong>
+                <div style={{ fontSize: '13px', color: '#aaa' }}>{u.email}</div>
+                {dataIscr && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>Iscritto il {dataIscr}</div>}
+              </div>
+            )
+          })}
         </div>
       )}
 

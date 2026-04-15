@@ -365,19 +365,38 @@ function App() {
         <span style={{ color: '#fff', fontSize: headerFontSize, letterSpacing: '3px', fontWeight: 400 }}>
           FLORNIGHT
         </span>
-        <button
-          onClick={toggleFiltro}
-          style={{
-            padding: '5px 14px', borderRadius: '16px',
-            border: filtro === 'night' ? '1px solid #D4A843' : '1px solid rgba(255,255,255,0.2)',
-            cursor: 'pointer', fontSize: '11px', fontWeight: 500,
-            background: filtro === 'night' ? 'rgba(212,168,67,0.15)' : 'transparent',
-            color: filtro === 'night' ? '#D4A843' : 'rgba(255,255,255,0.6)',
-            transition: 'all 0.3s ease', letterSpacing: '0.5px'
-          }}
-        >
-          STASERA
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={toggleFiltro}
+            style={{
+              padding: '5px 14px', borderRadius: '16px',
+              border: filtro === 'night' ? '1px solid #D4A843' : '1px solid rgba(255,255,255,0.2)',
+              cursor: 'pointer', fontSize: '11px', fontWeight: 500,
+              background: filtro === 'night' ? 'rgba(212,168,67,0.15)' : 'transparent',
+              color: filtro === 'night' ? '#D4A843' : 'rgba(255,255,255,0.6)',
+              transition: 'all 0.3s ease', letterSpacing: '0.5px'
+            }}
+          >
+            STASERA
+          </button>
+          <a
+            href="/utente"
+            aria-label="Account utente"
+            style={{
+              width: '30px', height: '30px', borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'rgba(255,255,255,0.7)', textDecoration: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+            </svg>
+          </a>
+        </div>
       </div>
 
       {/* Mappa */}
