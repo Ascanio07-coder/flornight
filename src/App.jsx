@@ -62,7 +62,13 @@ function App() {
   var setOffset2 = touch2Offset[1]
   var dragging2 = useRef(false)
 
-  var pulseState = useState(false)
+  var touchMenuStart = useRef(0)
+  var touchMenuOffset = useState(0)
+  var offsetMenu = touchMenuOffset[0]
+  var setOffsetMenu = touchMenuOffset[1]
+  var draggingMenu = useRef(false)
+
+  var pulseState = useState(0)
   var pulse = pulseState[0]
   var setPulse = pulseState[1]
 
@@ -73,14 +79,20 @@ function App() {
     }
   }, [setShowSplash])
 
-  // Pulse animation for app dots
+  // Pulse animation for app dots - fluid sine wave
   useEffect(function() {
-    if (isApp) {
-      var interval = setInterval(function() {
-        setPulse(function(p) { return !p })
-      }, 1500)
-      return function() { clearInterval(interval) }
+    if (!isApp) return
+    var start = Date.now()
+    var frameId
+    function tick() {
+      var t = (Date.now() - start) / 1000
+      // periodo 2.4s, valore normalizzato 0..1
+      var val = (Math.sin(t * Math.PI / 1.2) + 1) / 2
+      setPulse(val)
+      frameId = requestAnimationFrame(tick)
     }
+    frameId = requestAnimationFrame(tick)
+    return function() { cancelAnimationFrame(frameId) }
   }, [setPulse])
 
   useEffect(function() {
@@ -175,12 +187,12 @@ function App() {
   function getDotRadius(locale) {
     if (!isApp) return 7
     if (selezionato && selezionato.id === locale.id) return 10
-    return pulse ? 9 : 7
+    return 7 + pulse * 2.5
   }
 
   function getDotOpacity() {
     if (!isApp) return 0.85
-    return pulse ? 1 : 0.75
+    return 0.7 + pulse * 0.3
   }
 
   function selezionaLocale(locale) {
@@ -308,6 +320,10 @@ function App() {
   function onTouch2Move(e) { if (!dragging2.current) return; var diff = e.touches[0].clientY - touch2Start.current; if (diff > 0) setOffset2(diff) }
   function onTouch2End() { dragging2.current = false; if (offset2 > 120) chiudiEvento(); setOffset2(0) }
 
+  function onTouchMenuStart(e) { touchMenuStart.current = e.touches[0].clientX; draggingMenu.current = true }
+  function onTouchMenuMove(e) { if (!draggingMenu.current) return; var diff = e.touches[0].clientX - touchMenuStart.current; if (diff > 0) setOffsetMenu(diff) }
+  function onTouchMenuEnd() { draggingMenu.current = false; if (offsetMenu > 80) { setMenuAperto(false) } setOffsetMenu(0) }
+
   var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
   var hasLogo = selezionato && selezionato.logo_url && selezionato.logo_url.length > 0
@@ -390,7 +406,7 @@ function App() {
       <MapContainer
         center={[43.7696, 11.2558]}
         zoom={15}
-        style={{ height: '100%', width: '100%', background: '#121212', filter: isApp ? 'brightness(1.4) contrast(1.15)' : 'brightness(1.3) contrast(1.1)' }}
+        style={{ height: '100%', width: '100%', background: '#121212', filter: isApp ? 'brightness(1.75) contrast(1.15)' : 'brightness(1.6) contrast(1.1)' }}
         maxBounds={firenzeBounds}
         maxBoundsViscosity={1.0}
         minZoom={13}
@@ -457,14 +473,18 @@ function App() {
       )}
 
       {/* Menu laterale */}
-      <div style={{
+      <div
+        onTouchStart={onTouchMenuStart}
+        onTouchMove={onTouchMenuMove}
+        onTouchEnd={onTouchMenuEnd}
+        style={{
         position: 'absolute',
         top: 0, bottom: 0, right: 0,
         width: isApp ? '88%' : '85%',
         zIndex: 1200,
         background: isApp ? '#0f0f0f' : '#141414',
-        transform: menuAperto ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: menuAperto ? ('translateX(' + offsetMenu + 'px)') : 'translateX(100%)',
+        transition: draggingMenu.current ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         color: '#fff',
         boxShadow: menuAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
       }}>
