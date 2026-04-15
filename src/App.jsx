@@ -2,13 +2,32 @@ import { useState, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from './supabase'
+import {
+  getGiornoOggi as libGetGiornoOggi,
+  filterLocaliByFiltro,
+  getLocaliMenu as libGetLocaliMenu,
+  getEventiMenuLocale as libGetEventiMenuLocale,
+  eventoValido as libEventoValido,
+  eventoStasera as libEventoStasera,
+} from './lib/dateFilters.js'
+import {
+  getDotColor as libGetDotColor,
+  getDotFill as libGetDotFill,
+  getDotRadius as libGetDotRadius,
+  getDotWeight as libGetDotWeight,
+  getDotOpacity as libGetDotOpacity,
+} from './lib/markers.js'
+import {
+  dragDelta,
+  shouldClosePanel,
+  shouldCloseEvent,
+  shouldCloseMenu,
+} from './lib/gestures.js'
 
 var firenzeBounds = [
   [43.7270, 11.1540],
   [43.8130, 11.3300]
 ]
-
-var giorniMappa = ['Domenica', 'Lunedi', 'Martedi', 'Mercoledi', 'Giovedi', 'Venerdi', 'Sabato']
 
 var isApp = typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches
 
@@ -97,80 +116,36 @@ function App() {
     })
   }, [setLocali])
 
-  function getGiornoOggi() {
-    var now = new Date()
-    var ora = now.getHours()
-    var giorno = now.getDay()
-    if (ora < 6) {
-      giorno = giorno - 1
-      if (giorno < 0) giorno = 6
-    }
-    return giorniMappa[giorno]
-  }
-
-  function getOggiData() {
-    var now = new Date()
-    var ora = now.getHours()
-    if (ora < 6) now.setDate(now.getDate() - 1)
-    var anno = now.getFullYear()
-    var mese = String(now.getMonth() + 1)
-    if (mese.length < 2) mese = '0' + mese
-    var giorno = String(now.getDate())
-    if (giorno.length < 2) giorno = '0' + giorno
-    return anno + '-' + mese + '-' + giorno
-  }
-
-  function eventoValido(evento) {
-    if (!evento.data_evento) return true
-    return evento.data_evento >= getOggiData()
-  }
-
-  function eventoStasera(evento) {
-    if (!evento.data_evento) return evento.giorno === getGiornoOggi()
-    return evento.data_evento === getOggiData()
-  }
-
-  function localeApertoOra(locale) {
-    return locale.eventi.filter(function(e) { return eventoValido(e) && eventoStasera(e) }).length > 0
-  }
+  function getGiornoOggi() { return libGetGiornoOggi() }
+  function eventoValido(evento) { return libEventoValido(evento) }
+  function eventoStasera(evento) { return libEventoStasera(evento) }
 
   function getLocaliVisibili() {
-    if (filtro === 'week') return locali
-    return locali.filter(function(l) { return localeApertoOra(l) })
+    return filterLocaliByFiltro(locali, filtro)
   }
 
   function getLocaliMenu() {
-    var lista = filtro === 'night' ? locali.filter(function(l) { return localeApertoOra(l) }) : locali
-    return lista.slice().sort(function(a, b) {
-      if (a.nome < b.nome) return -1
-      if (a.nome > b.nome) return 1
-      return 0
-    })
+    return libGetLocaliMenu(locali, filtro)
   }
 
   function getDotColor(locale) {
-    if (selezionato && selezionato.id === locale.id) return '#ffffff'
-    if (filtro === 'night') return '#D4A843'
-    return '#C43E51'
+    return libGetDotColor(locale, { selezionatoId: selezionato ? selezionato.id : null, filtro: filtro })
   }
 
   function getDotFill() {
-    if (filtro === 'night') return '#D4A843'
-    return '#C43E51'
+    return libGetDotFill(filtro)
   }
 
   function getDotWeight(locale) {
-    if (selezionato && selezionato.id === locale.id) return 2
-    return 1.5
+    return libGetDotWeight(locale, { selezionatoId: selezionato ? selezionato.id : null })
   }
 
   function getDotRadius(locale) {
-    if (selezionato && selezionato.id === locale.id) return 9
-    return 7
+    return libGetDotRadius(locale, { selezionatoId: selezionato ? selezionato.id : null })
   }
 
   function getDotOpacity() {
-    return 0.9
+    return libGetDotOpacity()
   }
 
   function selezionaLocale(locale) {
@@ -231,11 +206,7 @@ function App() {
   }
 
   function getEventiMenuLocale(locale) {
-    var validi = locale.eventi.filter(function(e) { return eventoValido(e) })
-    if (filtro === 'night') {
-      return validi.filter(function(e) { return eventoStasera(e) })
-    }
-    return validi
+    return libGetEventiMenuLocale(locale, filtro)
   }
 
   function chiudiEvento() {
@@ -283,24 +254,20 @@ function App() {
 
   function getEventiVisibili() {
     if (!selezionato) return []
-    var validi = selezionato.eventi.filter(function(e) { return eventoValido(e) })
-    if (filtro === 'night') {
-      return validi.filter(function(e) { return eventoStasera(e) })
-    }
-    return validi
+    return libGetEventiMenuLocale(selezionato, filtro)
   }
 
   function onTouch1Start(e) { touch1Start.current = e.touches[0].clientY; dragging1.current = true }
-  function onTouch1Move(e) { if (!dragging1.current) return; var diff = e.touches[0].clientY - touch1Start.current; if (diff > 0) setOffset1(diff) }
-  function onTouch1End() { dragging1.current = false; if (offset1 > 100) chiudiPannello(); setOffset1(0) }
+  function onTouch1Move(e) { if (!dragging1.current) return; setOffset1(dragDelta(e.touches[0].clientY, touch1Start.current)) }
+  function onTouch1End() { dragging1.current = false; if (shouldClosePanel(offset1)) chiudiPannello(); setOffset1(0) }
 
   function onTouch2Start(e) { touch2Start.current = e.touches[0].clientY; dragging2.current = true }
-  function onTouch2Move(e) { if (!dragging2.current) return; var diff = e.touches[0].clientY - touch2Start.current; if (diff > 0) setOffset2(diff) }
-  function onTouch2End() { dragging2.current = false; if (offset2 > 120) chiudiEvento(); setOffset2(0) }
+  function onTouch2Move(e) { if (!dragging2.current) return; setOffset2(dragDelta(e.touches[0].clientY, touch2Start.current)) }
+  function onTouch2End() { dragging2.current = false; if (shouldCloseEvent(offset2)) chiudiEvento(); setOffset2(0) }
 
   function onTouchMenuStart(e) { touchMenuStart.current = e.touches[0].clientX; draggingMenu.current = true }
-  function onTouchMenuMove(e) { if (!draggingMenu.current) return; var diff = e.touches[0].clientX - touchMenuStart.current; if (diff > 0) setOffsetMenu(diff) }
-  function onTouchMenuEnd() { draggingMenu.current = false; if (offsetMenu > 80) { setMenuAperto(false) } setOffsetMenu(0) }
+  function onTouchMenuMove(e) { if (!draggingMenu.current) return; setOffsetMenu(dragDelta(e.touches[0].clientX, touchMenuStart.current)) }
+  function onTouchMenuEnd() { draggingMenu.current = false; if (shouldCloseMenu(offsetMenu)) { setMenuAperto(false) } setOffsetMenu(0) }
 
   var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
