@@ -465,22 +465,20 @@ function App() {
         background: isApp ? '#0f0f0f' : '#141414',
         transform: menuAperto ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflowY: 'auto',
         color: '#fff',
-        WebkitOverflowScrolling: 'touch',
         boxShadow: menuAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
       }}>
-        <div style={{ padding: '20px', paddingTop: isApp ? '60px' : '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{
+          height: '100%',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y'
+        }}>
+        <div style={{ padding: '20px', paddingTop: isApp ? '60px' : '20px', paddingBottom: '100px' }}>
+          <div style={{ marginBottom: '24px' }}>
             <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {filtro === 'night' ? 'STASERA' : 'TUTTI I LOCALI'}
             </span>
-            <div
-              onClick={function() { setMenuAperto(false) }}
-              style={{ fontSize: '20px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px 8px' }}
-            >
-              X
-            </div>
           </div>
 
           {localiMenu.length === 0 && (
@@ -544,6 +542,26 @@ function App() {
               </div>
             )
           })}
+        </div>
+        </div>
+
+        {/* Bottone chiudi menu (X) in basso a destra */}
+        <div
+          onClick={function() { setMenuAperto(false) }}
+          style={{
+            position: 'absolute', bottom: '24px', right: '20px',
+            zIndex: 10,
+            width: isApp ? '48px' : '44px', height: isApp ? '48px' : '44px',
+            background: isApp ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '22px', lineHeight: 1, color: 'rgba(255,255,255,0.7)',
+            cursor: 'pointer'
+          }}
+        >
+          ×
         </div>
       </div>
 
