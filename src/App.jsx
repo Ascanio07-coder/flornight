@@ -139,11 +139,20 @@ function App() {
     })
   }, [currentUser])
 
-  // Genera QR code data URLs per i biglietti
+  // Genera QR code SOLO per i biglietti pagati (is_paid = true).
+  // La fonte di verita' del pagamento e' il webhook di Stripe: il frontend
+  // non deve mai produrre un QR per un biglietto non confermato.
+  // Se il webhook ha gia' salvato qr_code nel DB, lo usiamo direttamente.
   useEffect(function() {
     var cache = qrCacheRef.current
     biglietti.forEach(function(b) {
+      if (!b.is_paid) return
       if (cache[b.codice]) return
+      if (b.qr_code) {
+        cache[b.codice] = b.qr_code
+        setQrBump(function(n) { return n + 1 })
+        return
+      }
       var payload = JSON.stringify({
         codice: b.codice,
         utente: currentUser ? currentUser.email : '',
@@ -339,6 +348,11 @@ function App() {
   function onTouchTicketsMove(e) { if (!draggingTickets.current) return; setOffsetTickets(dragDelta(e.touches[0].clientX, touchTicketsStart.current)) }
   function onTouchTicketsEnd() { draggingTickets.current = false; if (shouldCloseMenu(offsetTickets)) { setTicketsAperto(false) } setOffsetTickets(0) }
 
+  // Click su "Acquista":
+  // 1) inserisce il biglietto con is_paid=false (pending)
+  // 2) chiede al backend una Checkout Session Stripe
+  // 3) reindirizza l'utente a Stripe
+  // Il QR verra' sbloccato solo quando il webhook conferma il pagamento.
   function clickPrezzo(evento, locale) {
     if (!currentUser) {
       window.location.href = '/utente?redirect=/'
@@ -354,17 +368,46 @@ function App() {
       locale_nome: locale.nome,
       evento_giorno: evento.giorno,
       evento_orario: evento.orario || '',
-      prezzo: evento.prezzo || ''
-    }).then(function(res) {
-      if (res.error) {
-        alert('Errore creazione biglietto: ' + res.error.message)
+      prezzo: evento.prezzo || '',
+      is_paid: false
+    }).select().single().then(function(res) {
+      if (res.error || !res.data) {
+        alert('Errore creazione biglietto: ' + (res.error ? res.error.message : 'sconosciuto'))
         return
       }
-      supabase.from('biglietti').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).then(function(res2) {
-        setBiglietti(res2.data || [])
+      var biglietto = res.data
+      // Chiamiamo il backend per creare la sessione Stripe.
+      // Nessuna chiave segreta viaggia sul client: solo id/metadata pubblici.
+      fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          bigliettoId: biglietto.id,
+          codice: codice,
+          evento: {
+            id: evento.id,
+            nome: evento.nome,
+            giorno: evento.giorno,
+            orario: evento.orario || '',
+            prezzo: evento.prezzo || ''
+          },
+          locale: {
+            id: locale.id,
+            nome: locale.nome
+          }
+        })
+      }).then(function(r) {
+        return r.json().then(function(data) { return { ok: r.ok, data: data } })
+      }).then(function(result) {
+        if (!result.ok || !result.data || !result.data.url) {
+          alert('Errore avvio pagamento: ' + (result.data && result.data.error ? result.data.error : 'sconosciuto'))
+          return
+        }
+        window.location.href = result.data.url
+      }).catch(function(err) {
+        alert('Errore di rete: ' + err.message)
       })
-      chiudiEvento()
-      setTicketsAperto(true)
     })
   }
 
@@ -847,9 +890,22 @@ function App() {
                     </span>
                   </div>
 
-                  {qrUrl && (
+                  {/* Il QR esiste solo se Stripe ha confermato il pagamento
+                      (is_paid viene impostato a true solo dal webhook). */}
+                  {b.is_paid && qrUrl && (
                     <div style={{ textAlign: 'center', background: '#fff', borderRadius: '12px', padding: '16px' }}>
                       <img src={qrUrl} alt={'QR ' + b.codice} style={{ width: '160px', height: '160px' }} />
+                    </div>
+                  )}
+                  {!b.is_paid && (
+                    <div style={{
+                      textAlign: 'center', background: 'rgba(255,255,255,0.04)',
+                      border: '1px dashed rgba(255,255,255,0.12)',
+                      borderRadius: '12px', padding: '20px', color: 'rgba(255,255,255,0.45)',
+                      fontSize: '13px', lineHeight: '1.5'
+                    }}>
+                      Pagamento non ancora completato.<br />
+                      Il QR verra' generato dopo la conferma Stripe.
                     </div>
                   )}
 
