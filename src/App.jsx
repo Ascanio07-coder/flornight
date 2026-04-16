@@ -23,6 +23,7 @@ import {
   shouldCloseEvent,
   shouldCloseMenu,
 } from './lib/gestures.js'
+import { getDemoPoster, getDemoFrase, getDemoAudioUrl } from './lib/demoContent.js'
 
 var firenzeBounds = [
   [43.7270, 11.1540],
@@ -63,6 +64,10 @@ function App() {
   var menuLocaleState = useState(null)
   var menuLocaleEspanso = menuLocaleState[0]
   var setMenuLocaleEspanso = menuLocaleState[1]
+
+  var searchState = useState('')
+  var searchQuery = searchState[0]
+  var setSearchQuery = searchState[1]
 
   var audioRefState = useRef(null)
   var playState = useState(false)
@@ -274,8 +279,27 @@ function App() {
   var hasLogo = selezionato && selezionato.logo_url && selezionato.logo_url.length > 0
   var hasFrase = eventoAperto && eventoAperto.frase && eventoAperto.frase.length > 0
   var hasAudio = eventoAperto && eventoAperto.audio_url && eventoAperto.audio_url.length > 0
+
+  // Demo fallbacks for events without custom content
+  var eventoPoster = hasEventImage ? eventoAperto.immagine_url : (eventoAperto ? getDemoPoster(eventoAperto.id) : null)
+  var eventoFrase = hasFrase ? eventoAperto.frase : (eventoAperto ? getDemoFrase(eventoAperto.id) : null)
+  var eventoAudio = hasAudio ? eventoAperto.audio_url : (eventoAperto ? getDemoAudioUrl(eventoAperto.id) : null)
+
   var localiVisibili = getLocaliVisibili()
   var localiMenu = getLocaliMenu()
+
+  // Search filter for the side menu
+  var q = searchQuery.trim().toLowerCase()
+  var localiMenuFiltrati = q.length === 0 ? localiMenu : localiMenu.filter(function(locale) {
+    if (locale.nome.toLowerCase().indexOf(q) >= 0) return true
+    if (locale.indirizzo && locale.indirizzo.toLowerCase().indexOf(q) >= 0) return true
+    var evs = getEventiMenuLocale(locale)
+    return evs.some(function(ev) {
+      if (ev.nome && ev.nome.toLowerCase().indexOf(q) >= 0) return true
+      if (ev.frase && ev.frase.toLowerCase().indexOf(q) >= 0) return true
+      return false
+    })
+  })
 
   // SPLASH SCREEN (solo app)
   if (showSplash) {
@@ -386,7 +410,7 @@ function App() {
             <CircleMarker
               key={'hit-' + locale.id}
               center={[locale.lat, locale.lng]}
-              radius={20}
+              radius={35}
               pathOptions={{
                 stroke: false,
                 fillColor: '#000',
@@ -433,7 +457,7 @@ function App() {
       {/* Bottone menu */}
       {!menuAperto && !eventoAperto && (
         <div
-          onClick={function() { setMenuAperto(true); setMenuLocaleEspanso(null) }}
+          onClick={function() { setMenuAperto(true); setMenuLocaleEspanso(null); setSearchQuery('') }}
           style={{
             position: 'absolute', bottom: '24px', right: '20px',
             zIndex: 999, width: isApp ? '48px' : '44px', height: isApp ? '48px' : '44px',
@@ -486,17 +510,42 @@ function App() {
           touchAction: 'pan-y'
         }}>
         <div style={{ paddingTop: isApp ? '60px' : '20px', paddingRight: '20px', paddingBottom: '100px', paddingLeft: '28px' }}>
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {filtro === 'night' ? 'STASERA' : 'TUTTI I LOCALI'}
             </span>
           </div>
 
-          {localiMenu.length === 0 && (
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>Nessun locale aperto stasera</p>
+          {/* Barra di ricerca */}
+          <div style={{ position: 'relative', marginBottom: '18px' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}>
+              <circle cx="11" cy="11" r="7" />
+              <line x1="16.5" y1="16.5" x2="21" y2="21" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Cerca locale, evento, frase..."
+              value={searchQuery}
+              onChange={function(e) { setSearchQuery(e.target.value) }}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '10px 12px 10px 36px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.05)',
+                color: '#fff', fontSize: '14px',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {localiMenuFiltrati.length === 0 && (
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
+              {q.length > 0 ? 'Nessun risultato per "' + searchQuery + '"' : 'Nessun locale aperto stasera'}
+            </p>
           )}
 
-          {localiMenu.map(function(locale) {
+          {localiMenuFiltrati.map(function(locale) {
             var espanso = menuLocaleEspanso === locale.id
             var eventiLocale = getEventiMenuLocale(locale)
             var hasLoc = locale.logo_url && locale.logo_url.length > 0
@@ -725,26 +774,15 @@ function App() {
             )}
 
             <div style={{ padding: '0 36px', flexShrink: 0 }}>
-              {hasEventImage ? (
-                <img
-                  src={eventoAperto.immagine_url}
-                  alt={eventoAperto.nome}
-                  style={{
-                    width: '100%', borderRadius: '6px',
-                    aspectRatio: '1/1', objectFit: 'cover', display: 'block',
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.6)'
-                  }}
-                />
-              ) : (
-                <div style={{
+              <img
+                src={eventoPoster}
+                alt={eventoAperto.nome}
+                style={{
                   width: '100%', borderRadius: '6px',
-                  aspectRatio: '1/1', background: '#282828',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '64px', boxShadow: '0 12px 32px rgba(0,0,0,0.6)'
-                }}>
-                  🎵
-                </div>
-              )}
+                  aspectRatio: '1/1', objectFit: 'cover', display: 'block',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.6)'
+                }}
+              />
             </div>
 
             <div style={{ padding: '28px 36px', flex: 1 }}>
@@ -752,9 +790,9 @@ function App() {
                 {eventoAperto.nome}
               </h2>
 
-              {hasFrase && (
+              {eventoFrase && (
                 <p style={{ margin: '0 0 18px 0', color: 'rgba(255,255,255,0.5)', fontSize: '14px', lineHeight: '1.4' }}>
-                  {eventoAperto.frase}
+                  {eventoFrase}
                 </p>
               )}
 
@@ -775,11 +813,11 @@ function App() {
                 {eventoAperto.prezzo}
               </span>
 
-              {hasAudio && (
+              {eventoAudio && (
                 <div style={{ marginTop: '32px' }}>
                   <audio
                     ref={audioRefState}
-                    src={eventoAperto.audio_url}
+                    src={eventoAudio}
                     preload="auto"
                     onEnded={function() { setPlaying(false) }}
                   />

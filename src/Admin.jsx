@@ -228,6 +228,14 @@ function Admin() {
     })
   }
 
+  function eliminaUtente(userId) {
+    if (!window.confirm('Eliminare questo account utente?')) return
+    supabase.from('utenti').delete().eq('user_id', userId).then(function(res) {
+      if (res.error) { alert('Errore: ' + res.error.message); return }
+      caricaDati()
+    })
+  }
+
   function getNomeLocale(localeId) {
     return libGetNomeLocale(locali, localeId)
   }
@@ -361,10 +369,13 @@ function Admin() {
           {utentiList.map(function(u) {
             var dataIscr = u.created_at ? new Date(u.created_at).toLocaleDateString('it-IT') : ''
             return (
-              <div key={u.user_id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
-                <strong>{u.nome || '(senza nome)'}</strong>
-                <div style={{ fontSize: '13px', color: '#aaa' }}>{u.email}</div>
-                {dataIscr && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>Iscritto il {dataIscr}</div>}
+              <div key={u.user_id} style={{ background: '#1a1a2e', borderRadius: '12px', padding: '14px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong>{u.nome || '(senza nome)'}</strong>
+                  <div style={{ fontSize: '13px', color: '#aaa' }}>{u.email}</div>
+                  {dataIscr && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>Iscritto il {dataIscr}</div>}
+                </div>
+                <button onClick={function() { eliminaUtente(u.user_id) }} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, background: '#333', color: '#ff4444' }}>Elimina</button>
               </div>
             )
           })}
