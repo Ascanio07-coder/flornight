@@ -24,6 +24,7 @@ import {
   shouldCloseMenu,
 } from './lib/gestures.js'
 import { getDemoPoster, getDemoFrase, getDemoAudioUrl } from './lib/demoContent.js'
+import QRCode from 'qrcode'
 
 var firenzeBounds = [
   [43.7270, 11.1540],
@@ -69,6 +70,28 @@ function App() {
   var searchQuery = searchState[0]
   var setSearchQuery = searchState[1]
 
+  var currentUserState = useState(null)
+  var currentUser = currentUserState[0]
+  var setCurrentUser = currentUserState[1]
+
+  var bigliettiState = useState([])
+  var biglietti = bigliettiState[0]
+  var setBiglietti = bigliettiState[1]
+
+  var ticketsApertoState = useState(false)
+  var ticketsAperto = ticketsApertoState[0]
+  var setTicketsAperto = ticketsApertoState[1]
+
+  var qrCacheRef = useRef({})
+  var qrBumpState = useState(0)
+  var setQrBump = qrBumpState[1]
+
+  var touchTicketsStart = useRef(0)
+  var touchTicketsOffset = useState(0)
+  var offsetTickets = touchTicketsOffset[0]
+  var setOffsetTickets = touchTicketsOffset[1]
+  var draggingTickets = useRef(false)
+
   var audioRefState = useRef(null)
   var playState = useState(false)
   var playing = playState[0]
@@ -98,6 +121,44 @@ function App() {
       setTimeout(function() { setShowSplash(false) }, 2200)
     }
   }, [setShowSplash])
+
+  // Controlla se l'utente e gia loggato
+  useEffect(function() {
+    supabase.auth.getSession().then(function(res) {
+      if (res.data.session) {
+        setCurrentUser(res.data.session.user)
+      }
+    })
+  }, [])
+
+  // Carica biglietti quando l'utente e autenticato
+  useEffect(function() {
+    if (!currentUser) return
+    supabase.from('biglietti').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).then(function(res) {
+      setBiglietti(res.data || [])
+    })
+  }, [currentUser])
+
+  // Genera QR code data URLs per i biglietti
+  useEffect(function() {
+    var cache = qrCacheRef.current
+    biglietti.forEach(function(b) {
+      if (cache[b.codice]) return
+      var payload = JSON.stringify({
+        codice: b.codice,
+        utente: currentUser ? currentUser.email : '',
+        locale: b.locale_nome,
+        evento: b.evento_nome,
+        giorno: b.evento_giorno,
+        orario: b.evento_orario,
+        prezzo: b.prezzo
+      })
+      QRCode.toDataURL(payload, { width: 200, margin: 2 }).then(function(url) {
+        cache[b.codice] = url
+        setQrBump(function(n) { return n + 1 })
+      })
+    })
+  }, [biglietti, currentUser])
 
   useEffect(function() {
     supabase.from('locali').select('*').then(function(res1) {
@@ -273,6 +334,39 @@ function App() {
   function onTouchMenuStart(e) { touchMenuStart.current = e.touches[0].clientX; draggingMenu.current = true }
   function onTouchMenuMove(e) { if (!draggingMenu.current) return; setOffsetMenu(dragDelta(e.touches[0].clientX, touchMenuStart.current)) }
   function onTouchMenuEnd() { draggingMenu.current = false; if (shouldCloseMenu(offsetMenu)) { setMenuAperto(false) } setOffsetMenu(0) }
+
+  function onTouchTicketsStart(e) { touchTicketsStart.current = e.touches[0].clientX; draggingTickets.current = true }
+  function onTouchTicketsMove(e) { if (!draggingTickets.current) return; setOffsetTickets(dragDelta(e.touches[0].clientX, touchTicketsStart.current)) }
+  function onTouchTicketsEnd() { draggingTickets.current = false; if (shouldCloseMenu(offsetTickets)) { setTicketsAperto(false) } setOffsetTickets(0) }
+
+  function clickPrezzo(evento, locale) {
+    if (!currentUser) {
+      window.location.href = '/utente?redirect=/'
+      return
+    }
+    var codice = 'FN-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+    supabase.from('biglietti').insert({
+      user_id: currentUser.id,
+      evento_id: evento.id,
+      locale_id: locale.id,
+      codice: codice,
+      evento_nome: evento.nome,
+      locale_nome: locale.nome,
+      evento_giorno: evento.giorno,
+      evento_orario: evento.orario || '',
+      prezzo: evento.prezzo || ''
+    }).then(function(res) {
+      if (res.error) {
+        alert('Errore creazione biglietto: ' + res.error.message)
+        return
+      }
+      supabase.from('biglietti').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).then(function(res2) {
+        setBiglietti(res2.data || [])
+      })
+      chiudiEvento()
+      setTicketsAperto(true)
+    })
+  }
 
   var eventiVisibili = getEventiVisibili()
   var hasEventImage = eventoAperto && eventoAperto.immagine_url && eventoAperto.immagine_url.length > 0
@@ -454,8 +548,41 @@ function App() {
         </div>
       )}
 
+      {/* Bottone tickets */}
+      {!menuAperto && !eventoAperto && !ticketsAperto && (
+        <div
+          onClick={function() { setTicketsAperto(true) }}
+          style={{
+            position: 'absolute', bottom: '80px', right: '20px',
+            zIndex: 999, width: isApp ? '48px' : '44px', height: isApp ? '48px' : '44px',
+            background: isApp ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+            <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+          </svg>
+          {biglietti.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '-4px', right: '-4px',
+              width: '18px', height: '18px', borderRadius: '50%',
+              background: '#C43E51', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: '10px', fontWeight: 700,
+              color: '#fff'
+            }}>
+              {biglietti.length}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Bottone menu */}
-      {!menuAperto && !eventoAperto && (
+      {!menuAperto && !eventoAperto && !ticketsAperto && (
         <div
           onClick={function() { setMenuAperto(true); setMenuLocaleEspanso(null); setSearchQuery('') }}
           style={{
@@ -636,6 +763,137 @@ function App() {
         />
       )}
 
+      {/* Tendina Tickets */}
+      <div
+        onTouchStart={onTouchTicketsStart}
+        onTouchMove={onTouchTicketsMove}
+        onTouchEnd={onTouchTicketsEnd}
+        style={{
+          position: 'absolute',
+          top: 0, bottom: 0, right: 0,
+          width: isApp ? '88%' : '85%',
+          zIndex: 1200,
+          background: isApp ? '#0f0f0f' : '#141414',
+          transform: ticketsAperto ? ('translateX(' + offsetTickets + 'px)') : 'translateX(100%)',
+          transition: draggingTickets.current ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          color: '#fff',
+          boxShadow: ticketsAperto ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
+        }}
+      >
+        <div
+          onClick={function() { setTicketsAperto(false) }}
+          style={{
+            position: 'absolute',
+            left: '8px', top: '50%', transform: 'translateY(-50%)',
+            width: '3px', height: '32px',
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: '2px', cursor: 'pointer',
+            zIndex: 5
+          }}
+        />
+        <div style={{
+          height: '100%',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y'
+        }}>
+          <div style={{ paddingTop: isApp ? '60px' : '20px', paddingRight: '20px', paddingBottom: '100px', paddingLeft: '28px' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <span style={{ fontSize: '14px', letterSpacing: '2px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+                I MIEI BIGLIETTI
+              </span>
+            </div>
+
+            {!currentUser && (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', marginBottom: '16px' }}>Accedi per vedere i tuoi biglietti</p>
+                <a href="/utente?redirect=/" style={{
+                  display: 'inline-block', padding: '10px 24px', borderRadius: '10px',
+                  background: '#C43E51', color: '#fff', fontSize: '14px', fontWeight: 600,
+                  textDecoration: 'none'
+                }}>Accedi</a>
+              </div>
+            )}
+
+            {currentUser && biglietti.length === 0 && (
+              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px', textAlign: 'center', padding: '40px 0' }}>
+                Nessun biglietto acquistato
+              </p>
+            )}
+
+            {biglietti.map(function(b) {
+              var qrUrl = qrCacheRef.current[b.codice]
+              return (
+                <div key={b.codice} style={{
+                  background: '#1a1a2e', borderRadius: '16px',
+                  padding: '20px', marginBottom: '16px',
+                  border: '1px solid rgba(255,255,255,0.06)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>{b.evento_nome}</div>
+                      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>{b.locale_nome}</div>
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
+                        {b.evento_giorno}{b.evento_orario ? ' - ' + b.evento_orario : ''}
+                      </div>
+                    </div>
+                    <span style={{
+                      background: 'rgba(196,62,81,0.15)', border: '1px solid rgba(196,62,81,0.3)',
+                      padding: '4px 12px', borderRadius: '10px',
+                      fontSize: '12px', fontWeight: 600, color: '#C43E51',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {b.prezzo}
+                    </span>
+                  </div>
+
+                  {qrUrl && (
+                    <div style={{ textAlign: 'center', background: '#fff', borderRadius: '12px', padding: '16px' }}>
+                      <img src={qrUrl} alt={'QR ' + b.codice} style={{ width: '160px', height: '160px' }} />
+                    </div>
+                  )}
+
+                  <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', letterSpacing: '1px', fontFamily: 'monospace' }}>
+                      {b.codice}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div
+          onClick={function() { setTicketsAperto(false) }}
+          style={{
+            position: 'absolute', bottom: '24px', right: '20px',
+            zIndex: 10,
+            width: isApp ? '48px' : '44px', height: isApp ? '48px' : '44px',
+            background: isApp ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '22px', lineHeight: 1, color: 'rgba(255,255,255,0.7)',
+            cursor: 'pointer'
+          }}
+        >
+          ×
+        </div>
+      </div>
+
+      {/* Overlay tickets */}
+      {ticketsAperto && (
+        <div
+          onClick={function() { setTicketsAperto(false) }}
+          style={{
+            position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+            zIndex: 1150, background: 'rgba(0,0,0,0.5)'
+          }}
+        />
+      )}
+
       {/* Tendina 1 */}
       <div
         onTouchStart={onTouch1Start}
@@ -802,15 +1060,19 @@ function App() {
                 <span>{eventoAperto.orario}</span>
               </div>
 
-              <span style={{
-                display: 'inline-block',
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                padding: '8px 24px',
-                borderRadius: '20px', fontSize: '15px', fontWeight: 600,
-                color: '#fff'
-              }}>
-                {eventoAperto.prezzo}
+              <span
+                onClick={function(e) { e.stopPropagation(); clickPrezzo(eventoAperto, selezionato) }}
+                style={{
+                  display: 'inline-block',
+                  background: '#C43E51',
+                  border: '1px solid rgba(196,62,81,0.4)',
+                  padding: '10px 28px',
+                  borderRadius: '20px', fontSize: '15px', fontWeight: 600,
+                  color: '#fff', cursor: 'pointer',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                {eventoAperto.prezzo} — Acquista
               </span>
 
               {eventoAudio && (

@@ -50,6 +50,11 @@ function Utente() {
     })
   }, [setProfilo])
 
+  function getRedirectUrl() {
+    var params = new URLSearchParams(window.location.search)
+    return params.get('redirect') || null
+  }
+
   function login() {
     setErrore('')
     setMessaggio('')
@@ -57,6 +62,11 @@ function Utente() {
       if (res.error) {
         setErrore('Email o password errati')
       } else {
+        var redirect = getRedirectUrl()
+        if (redirect) {
+          window.location.href = redirect
+          return
+        }
         setUser(res.data.user)
         caricaProfilo(res.data.user.id)
       }
@@ -84,6 +94,11 @@ function Utente() {
       }).then(function(res2) {
         if (res2.error) {
           setErrore('Errore salvataggio profilo: ' + res2.error.message)
+          return
+        }
+        var redirect = getRedirectUrl()
+        if (redirect) {
+          window.location.href = redirect
           return
         }
         setUser(res.data.user)
